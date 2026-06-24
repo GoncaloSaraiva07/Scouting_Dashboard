@@ -209,23 +209,36 @@ def safe_player_label(row):
 def compute_cluster_fit_score(data, fit_col):
     data = data.copy()
 
+    # Se a coluna já existir, apenas garantir que não tem NaN
+    if "cluster_fit_score" in data.columns:
+        data["cluster_fit_score"] = pd.to_numeric(
+            data["cluster_fit_score"],
+            errors="coerce"
+        ).fillna(0.5)
+        return data
+
     # Se não existir cluster_id, usa valor neutro
     if "cluster_id" not in data.columns:
         data["cluster_fit_score"] = 0.5
         return data
 
-    # Se não existir fit_col, usa valor neutro
+    # Se não existir role_family, usa valor neutro
+    if "role_family" not in data.columns:
+        data["cluster_fit_score"] = 0.5
+        return data
+
+    # Se não existir a coluna de fit score, usa valor neutro
     if fit_col not in data.columns:
         data["cluster_fit_score"] = 0.5
         return data
 
-    # Garantir numéricos
+    # Garantir que fit_col é numérica
     data[fit_col] = pd.to_numeric(
         data[fit_col],
         errors="coerce"
     ).fillna(0)
 
-    # Calcular força média do cluster
+    # Calcular força média de cada cluster para o perfil escolhido
     cluster_strength = (
         data
         .dropna(subset=["cluster_id"])
@@ -242,7 +255,9 @@ def compute_cluster_fit_score(data, fit_col):
 
     cluster_strength["cluster_fit_score"] = 0.5
 
+    # Normalizar a força do cluster dentro de cada role_family
     for role in cluster_strength["role_family"].dropna().unique():
+
         mask = cluster_strength["role_family"] == role
         values = cluster_strength.loc[mask, "cluster_avg_fit"]
 
@@ -256,6 +271,7 @@ def compute_cluster_fit_score(data, fit_col):
         else:
             cluster_strength.loc[mask, "cluster_fit_score"] = 0.5
 
+    # Juntar score ao dataframe original
     data = data.merge(
         cluster_strength[
             [
@@ -270,10 +286,12 @@ def compute_cluster_fit_score(data, fit_col):
         how="left"
     )
 
-    data["cluster_fit_score"] = data["cluster_fit_score"].fillna(0.5)
+    data["cluster_fit_score"] = pd.to_numeric(
+        data["cluster_fit_score"],
+        errors="coerce"
+    ).fillna(0.5)
 
     return data
-
 
 def compute_similar_players(
     role_df,
