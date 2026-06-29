@@ -4,7 +4,7 @@
 # Dashboard-ready: Player DNA + Market + Clustering + Similarity + Recommendation
 # =========================================================
 
-import numpy as np
+import numpy as npF
 import pandas as pd
 import streamlit as st
 import plotly.express as px
@@ -902,11 +902,12 @@ kpi5.metric("Fit médio", f"{role_df[fit_col].mean():.3f}")
 # 9. LAYOUT PRINCIPAL
 # =========================================================
 
-tab_overview, tab_similarity, tab_radar, tab_market, tab_table = st.tabs(
+tab_overview, tab_similarity, tab_radar, tab_heatmap, tab_market, tab_table = st.tabs(
     [
         "📌 Overview",
         "🧬 Similaridade",
         "📡 Radar",
+        "🔥 Heat Map",
         "💰 Mercado",
         "📋 Tabela"
     ]
@@ -1018,14 +1019,64 @@ with tab_similarity:
 
 
 with tab_radar:
+    st.markdown("### Radar comparativo")
+
+    radar_candidates = [target_player_name]
+
+    if len(recommendations) > 0:
+        radar_candidates += recommendations["player_name"].head(4).tolist()
+
+    selected_radar_players = st.multiselect(
+        "Selecionar jogadores para comparar no radar",
+        options=radar_candidates,
+        default=radar_candidates[: min(3, len(radar_candidates))]
+    )
+
+    radar_base = pd.concat(
+        [
+            role_df[role_df["statsbomb_player_id"] == target_player_id],
+            recommendations
+        ],
+        ignore_index=True
+    ).drop_duplicates(subset=["statsbomb_player_id"])
+
+    if len(selected_radar_players) > 0:
+        fig_radar = radar_chart(
+            players_df=radar_base,
+            player_names=selected_radar_players,
+            features=TECHNICAL_FEATURES
+        )
+
+        st.plotly_chart(fig_radar, use_container_width=True)
+
+    st.markdown("### Métricas técnicas")
+
+    technical_cols = [
+        "player_name",
+        "position",
+        OFFICIAL_MINUTES_COL,
+    ] + [f for f in TECHNICAL_FEATURES if f in radar_base.columns]
+
+    st.dataframe(
+        radar_base[technical_cols].sort_values("player_name"),
+        use_container_width=True
+    )
+
+with tab_heatmap:
 
     st.markdown("### Mapa de manchas do jogador modelo")
+
+    st.caption(
+        "Visualização espacial das ações do jogador modelo com base nas coordenadas dos eventos StatsBomb."
+    )
 
     if spatial_events is None:
         st.info(
             "Para visualizar o mapa de manchas, adiciona o ficheiro "
-            "`outputs/dashboard_spatial_events.csv` exportado a partir do notebook."
+            "`outputs/dashboard_spatial_events.csv` exportado a partir do notebook "
+            "ou carrega o ficheiro CSV na sidebar."
         )
+
     else:
         heatmap_event_group = st.selectbox(
             "Tipo de ações para o mapa",
@@ -1052,6 +1103,7 @@ with tab_radar:
                 "Não existem eventos espaciais suficientes para este jogador "
                 "com o filtro selecionado."
             )
+
         else:
             st.plotly_chart(
                 fig_heatmap,
@@ -1076,15 +1128,29 @@ with tab_radar:
             )
 
             st.caption(
-                "Mapa construído com base nas coordenadas dos eventos StatsBomb "
-                "da Copa América 2024. A interpretação deve considerar o número "
-                "de minutos e jogos disputados na competição."
+                "Nota: o mapa é construído com base nos eventos StatsBomb da Copa América 2024. "
+                "A interpretação deve considerar os minutos jogados, o contexto tático e o número "
+                "de jogos disponíveis."
             )
 
-    st.divider()
+            if len(player_spatial_events) > 0:
+                st.markdown("### Distribuição das ações usadas no mapa")
 
-    st.markdown("### Radar comparativo")
+                event_summary = (
+                    player_spatial_events["event_type"]
+                    .value_counts()
+                    .reset_index()
+                )
 
+                event_summary.columns = [
+                    "Tipo de evento",
+                    "Número de ações"
+                ]
+
+                st.dataframe(
+                    event_summary,
+                    use_container_width=True
+                )
 
 with tab_market:
     st.markdown("### Mapa idade × valor de mercado")
