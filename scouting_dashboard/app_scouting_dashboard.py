@@ -69,12 +69,22 @@ def load_dashboard_data(uploaded_file=None, default_path="outputs/dashboard_scou
 
 with st.sidebar:
     st.header("1. Dados")
+
     uploaded_file = st.file_uploader(
-        "Carregar ficheiro exportado do notebook",
+        "Carregar ficheiro agregado do notebook",
         type=["xlsx", "csv"]
     )
 
+    uploaded_spatial_file = st.file_uploader(
+        "Carregar eventos espaciais StatsBomb",
+        type=["csv"]
+    )
+
 data = load_dashboard_data(uploaded_file=uploaded_file)
+
+spatial_events = load_spatial_events(
+    uploaded_file=uploaded_spatial_file
+)
 
 if data is None:
     st.warning(
@@ -85,6 +95,30 @@ if data is None:
 
 df = data.copy()
 
+# Carregar eventos espaciais do Notebook
+
+@st.cache_data
+def load_spatial_events(uploaded_file=None, default_path="outputs/dashboard_spatial_events.csv"):
+    """
+    Carrega eventos espaciais exportados do notebook.
+    Espera colunas:
+    statsbomb_player_id, player_name, event_type, x, y
+    """
+
+    if uploaded_file is not None:
+        return pd.read_csv(uploaded_file)
+
+    candidate_paths = [
+        Path(default_path),
+        Path("dashboard_spatial_events.csv"),
+        Path("outputs/dashboard_spatial_events.csv"),
+    ]
+
+    for path in candidate_paths:
+        if path.exists():
+            return pd.read_csv(path)
+
+    return None
 
 # =========================================================
 # 3. CONFIGURAÇÕES E NORMALIZAÇÃO
@@ -293,6 +327,7 @@ def compute_cluster_fit_score(data, fit_col):
 
     return data
 
+
 def compute_similar_players(
     role_df,
     target_player_id,
@@ -498,6 +533,163 @@ def format_eur(value):
         return f"€{value / 1_000:.0f}k"
     return f"€{value:.0f}"
 
+def draw_pitch_layout(fig):
+    """
+    Desenha linhas básicas de um campo StatsBomb 120x80 em Plotly.
+    """
+
+    line_color = "rgba(40, 40, 40, 0.75)"
+
+    shapes = []
+
+    # Campo
+    shapes.append(dict(type="rect", x0=0, y0=0, x1=120, y1=80, line=dict(color=line_color, width=2)))
+
+    # Linha do meio
+    shapes.append(dict(type="line", x0=60, y0=0, x1=60, y1=80, line=dict(color=line_color, width=1)))
+
+    # Grandes áreas
+    shapes.append(dict(type="rect", x0=0, y0=18, x1=18, y1=62, line=dict(color=line_color, width=1)))
+    shapes.append(dict(type="rect", x0=102, y0=18, x1=120, y1=62, line=dict(color=line_color, width=1)))
+
+    # Pequenas áreas
+    shapes.append(dict(type="rect", x0=0, y0=30, x1=6, y1=50, line=dict(color=line_color, width=1)))
+    shapes.append(dict(type="rect", x0=114, y0=30, x1=120, y1=50, line=dict(color=line_color, width=1)))
+
+    # Círculo central
+    shapes.append(dict(type="circle", x0=50, y0=30, x1=70, y1=50, line=dict(color=line_color, width=1)))
+
+    fig.update_layout(shapes=shapes)
+
+    fig.update_xaxes(
+        range=[0, 120],
+        showgrid=False,
+        zeroline=False,
+        showticklabels=False
+    )
+
+    fig.update_yaxes(
+        range=[80, 0],
+        showgrid=False,
+        zeroline=False,
+        showticklabels=False,
+        scaleanchor="x",
+        scaleratio=1
+    )
+
+    return fig
+
+
+def plot_player_heatmap(spatial_events, player_id, player_name, event_group="Todas as ações"):
+    """
+    Cria mapa de manchas / heatmap do jogador modelo.
+    Usa eventos StatsBomb com coordenadas x,y.
+    """
+
+    if spatial_events is None or len(spatial_events) == 0:
+        return None, pd.DataFrame()
+
+    data = spatial_events.copy()
+
+    required_cols = [
+        "statsbomb_player_id",
+        "event_type",
+        "x",
+        "y"
+    ]
+
+    missing_cols = [
+        col for col in required_cols
+        if col not in data.columns
+    ]
+
+    if len(missing_cols) > 0:
+        return None, pd.DataFrame()
+
+    data["statsbomb_player_id"] = pd.to_numeric(
+        data["statsbomb_player_id"],
+        errors="coerce"
+    )
+
+    data["x"] = pd.to_numeric(data["x"], errors="coerce")
+    data["y"] = pd.to_numeric(data["y"], errors="coerce")
+
+    data = data.dropna(
+        subset=["statsbomb_player_id", "x", "y"]
+    ).copy()
+
+    data["statsbomb_player_id"] = data["statsbomb_player_id"].astype(int)
+
+    player_events = data[
+        data["statsbomb_player_id"] == int(player_id)
+    ].copy()
+
+    event_groups = {
+        "Todas as ações": None,
+        "Passes": ["Pass"],
+        "Conduções": ["Carry"],
+        "Dribles": ["Dribble"],
+        "Remates": ["Shot"],
+        "Ações ofensivas": ["Pass", "Carry", "Dribble", "Shot", "Ball Receipt*"]
+    }
+
+    selected_events = event_groups.get(event_group)
+
+    if selected_events is not None:
+        player_events = player_events[
+            player_events["event_type"].isin(selected_events)
+        ].copy()
+
+    if len(player_events) == 0:
+        return None, player_events
+
+    fig = go.Figure()
+
+    fig.add_trace(
+        go.Histogram2dContour(
+            x=player_events["x"],
+            y=player_events["y"],
+            colorscale="Viridis",
+            contours=dict(
+                coloring="heatmap",
+                showlabels=False
+            ),
+            opacity=0.80,
+            ncontours=18,
+            showscale=True,
+            colorbar=dict(
+                title="Densidade"
+            )
+        )
+    )
+
+    fig.add_trace(
+        go.Scatter(
+            x=player_events["x"],
+            y=player_events["y"],
+            mode="markers",
+            marker=dict(
+                size=4,
+                color="white",
+                opacity=0.35,
+                line=dict(width=0)
+            ),
+            name="Ações"
+        )
+    )
+
+    fig = draw_pitch_layout(fig)
+
+    fig.update_layout(
+        title=f"Mapa de manchas — {player_name} | {event_group}",
+        height=560,
+        plot_bgcolor="rgba(245, 247, 250, 1)",
+        paper_bgcolor="white",
+        margin=dict(l=20, r=20, t=60, b=20),
+        showlegend=False
+    )
+
+    return fig, player_events
 
 # =========================================================
 # 5. SIDEBAR
@@ -582,7 +774,6 @@ with st.sidebar:
         value=15,
         step=5
     )
-
 
 # =========================================================
 # 6. FILTRAR BASE DO PERFIL
@@ -805,47 +996,72 @@ with tab_similarity:
 
 
 with tab_radar:
-    st.markdown("### Radar comparativo")
 
-    radar_candidates = [target_player_name]
+    st.markdown("### Mapa de manchas do jogador modelo")
 
-    if len(recommendations) > 0:
-        radar_candidates += recommendations["player_name"].head(4).tolist()
-
-    selected_radar_players = st.multiselect(
-        "Selecionar jogadores para comparar no radar",
-        options=radar_candidates,
-        default=radar_candidates[: min(3, len(radar_candidates))]
-    )
-
-    radar_base = pd.concat(
-        [
-            role_df[role_df["statsbomb_player_id"] == target_player_id],
-            recommendations
-        ],
-        ignore_index=True
-    ).drop_duplicates(subset=["statsbomb_player_id"])
-
-    if len(selected_radar_players) > 0:
-        fig_radar = radar_chart(
-            players_df=radar_base,
-            player_names=selected_radar_players,
-            features=TECHNICAL_FEATURES
+    if spatial_events is None:
+        st.info(
+            "Para visualizar o mapa de manchas, adiciona o ficheiro "
+            "`outputs/dashboard_spatial_events.csv` exportado a partir do notebook."
+        )
+    else:
+        heatmap_event_group = st.selectbox(
+            "Tipo de ações para o mapa",
+            [
+                "Todas as ações",
+                "Ações ofensivas",
+                "Passes",
+                "Conduções",
+                "Dribles",
+                "Remates"
+            ],
+            index=0
         )
 
-        st.plotly_chart(fig_radar, use_container_width=True)
+        fig_heatmap, player_spatial_events = plot_player_heatmap(
+            spatial_events=spatial_events,
+            player_id=target_player_id,
+            player_name=target_player_name,
+            event_group=heatmap_event_group
+        )
 
-    st.markdown("### Métricas técnicas")
-    technical_cols = [
-        "player_name",
-        "position",
-        OFFICIAL_MINUTES_COL,
-    ] + [f for f in TECHNICAL_FEATURES if f in radar_base.columns]
+        if fig_heatmap is None:
+            st.warning(
+                "Não existem eventos espaciais suficientes para este jogador "
+                "com o filtro selecionado."
+            )
+        else:
+            st.plotly_chart(
+                fig_heatmap,
+                use_container_width=True
+            )
 
-    st.dataframe(
-        radar_base[technical_cols].sort_values("player_name"),
-        use_container_width=True
-    )
+            c1, c2, c3 = st.columns(3)
+
+            c1.metric(
+                "Ações no mapa",
+                len(player_spatial_events)
+            )
+
+            c2.metric(
+                "Tipo de ação",
+                heatmap_event_group
+            )
+
+            c3.metric(
+                "Jogador modelo",
+                target_player_name
+            )
+
+            st.caption(
+                "Mapa construído com base nas coordenadas dos eventos StatsBomb "
+                "da Copa América 2024. A interpretação deve considerar o número "
+                "de minutos e jogos disputados na competição."
+            )
+
+    st.divider()
+
+    st.markdown("### Radar comparativo")
 
 
 with tab_market:
