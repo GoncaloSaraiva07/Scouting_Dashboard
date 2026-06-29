@@ -66,6 +66,28 @@ def load_dashboard_data(uploaded_file=None, default_path="outputs/dashboard_scou
 
     return None
 
+@st.cache_data
+def load_spatial_events(uploaded_file=None, default_path="outputs/dashboard_spatial_events.csv"):
+    """
+    Carrega eventos espaciais exportados do notebook.
+    Espera colunas:
+    statsbomb_player_id, player_name, event_type, x, y
+    """
+
+    if uploaded_file is not None:
+        return pd.read_csv(uploaded_file)
+
+    candidate_paths = [
+        Path(default_path),
+        Path("dashboard_spatial_events.csv"),
+        Path("outputs/dashboard_spatial_events.csv"),
+    ]
+
+    for path in candidate_paths:
+        if path.exists():
+            return pd.read_csv(path)
+
+    return None
 
 with st.sidebar:
     st.header("1. Dados")
