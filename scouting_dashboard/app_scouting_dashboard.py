@@ -983,7 +983,7 @@ role_df = compute_cluster_fit_score(role_df, fit_col)
 # 6.1 JOGADOR MODELO — SELEÇÃO CENTRAL
 # =========================================================
 
-st.subheader(f"Perfil selecionado: {selected_profile_label}")
+st.subheader(f"Perfil: {selected_profile_label}")
 
 st.markdown("### Selecionar o Jogador Modelo")
 
@@ -999,7 +999,6 @@ model_options_df["player_option_label"] = model_options_df.apply(
 )
 
 selected_model_label = st.selectbox(
-    "Selecionar jogador modelo",
     model_options_df["player_option_label"].tolist(),
     index=0,
     key="central_model_player"
