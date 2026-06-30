@@ -32,11 +32,30 @@ st.set_page_config(
 # HEADER VISUAL — DASHBOARD
 # =========================================================
 
-APP_DIR = Path(__file__).parent
-COPA_LOGO_PATH = APP_DIR / "assets" / "copa_america_2024_logo.png"
+# Logo Copa America 2024
+
+APP_DIR = Path(__file__).resolve().parent
+
+COPA_LOGO_CANDIDATES = [
+    APP_DIR / "assets" / "copa_america_2024_logo.png",
+    APP_DIR / "assets" / "copa_america_2024_logo.jpg",
+    APP_DIR / "assets" / "copa_america_2024_logo.jpeg",
+    Path("assets") / "copa_america_2024_logo.png",
+    Path("assets") / "copa_america_2024_logo.jpg",
+    Path("assets") / "copa_america_2024_logo.jpeg",
+]
+
+def find_copa_logo_path():
+    for path in COPA_LOGO_CANDIDATES:
+        if path.exists():
+            return path
+    return None
 
 
 def image_to_base64(image_path):
+    if image_path is None:
+        return None
+
     image_path = Path(image_path)
 
     if not image_path.exists():
@@ -54,7 +73,8 @@ def image_to_base64(image_path):
 
 
 def render_dashboard_header():
-    logo_base64 = image_to_base64(COPA_LOGO_PATH)
+    logo_path = find_copa_logo_path()
+    logo_base64 = image_to_base64(logo_path) if logo_path is not None else None
 
     if logo_base64 is None:
         logo_html = """
