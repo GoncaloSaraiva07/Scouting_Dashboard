@@ -4,7 +4,7 @@
 # Dashboard-ready: Player DNA + Market + Clustering + Similarity + Recommendation
 # =========================================================
 
-import numpy as npF
+import numpy as np
 import pandas as pd
 import streamlit as st
 import plotly.express as px
