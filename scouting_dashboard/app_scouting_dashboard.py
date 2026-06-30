@@ -755,7 +755,7 @@ with st.sidebar:
     ).fillna(0)
 
     # -----------------------------------------------------
-    # Intervalo de idade — range slider
+    # Intervalo de idade
     # -----------------------------------------------------
 
     min_age = None
@@ -803,7 +803,7 @@ with st.sidebar:
             )
 
     # -----------------------------------------------------
-    # Intervalo de valor de mercado — range slider
+    # Intervalo de valor de mercado
     # -----------------------------------------------------
 
     min_market_value = None
@@ -854,41 +854,29 @@ with st.sidebar:
     # Minutos mínimos
     # -----------------------------------------------------
 
-    max_minutes_available = int(
-        max(
-            1,
-            np.nanmax(role_df_raw[OFFICIAL_MINUTES_COL])
-        )
-    )
+    valid_minutes = role_df_raw[OFFICIAL_MINUTES_COL].dropna()
+
+    if len(valid_minutes) > 0:
+        max_minutes_available = int(valid_minutes.max())
+    else:
+        max_minutes_available = 0
+
+    max_minutes_available = max(1, max_minutes_available)
+    default_min_minutes = min(180, max_minutes_available)
 
     min_minutes = int(
         st.slider(
             "Minutos mínimos",
             min_value=0,
             max_value=max_minutes_available,
-            value=min(180, max_minutes_available),
+            value=default_min_minutes,
             step=30
         )
     )
 
     # -----------------------------------------------------
-    # Opções adicionais
+    # Número de recomendações
     # -----------------------------------------------------
-
-    same_cluster_only = st.checkbox(
-        "Apenas mesmo cluster",
-        value=False
-    )
-
-    same_cluster_bonus = st.checkbox(
-        "Bónus ao mesmo cluster",
-        value=True
-    )
-
-    exclude_same_team = st.checkbox(
-        "Excluir jogadores da mesma seleção/equipa",
-        value=False
-    )
 
     top_n = st.slider(
         "Número de recomendações",
@@ -897,6 +885,18 @@ with st.sidebar:
         value=15,
         step=5
     )
+
+
+# =========================================================
+# 5.1 CONFIGURAÇÕES INTERNAS DO CLUSTER
+# =========================================================
+# As opções visuais "Apenas mesmo cluster" e "Bónus ao mesmo cluster"
+# foram removidas da sidebar. Mantêm-se valores fixos para não quebrar
+# a função compute_similar_players.
+
+same_cluster_only = False
+same_cluster_bonus = False
+exclude_same_team = False
 
 
 # =========================================================
@@ -967,6 +967,9 @@ role_df[fit_col] = pd.to_numeric(
     errors="coerce"
 ).fillna(0)
 
+if "market_opportunity_score" not in role_df.columns:
+    role_df["market_opportunity_score"] = 0.5
+
 role_df["market_opportunity_score"] = pd.to_numeric(
     role_df["market_opportunity_score"],
     errors="coerce"
@@ -993,13 +996,17 @@ model_options_df["player_option_label"] = model_options_df.apply(
 with st.sidebar:
     st.header("3. Jogador modelo")
 
+    selected_model_label = st.selectbox(
+        "Selecionar jogador modelo",
+        model_options_df["player_option_label"].tolist()
+    )
+
 target_player = model_options_df[
     model_options_df["player_option_label"] == selected_model_label
 ].iloc[0]
 
 target_player_id = int(target_player["statsbomb_player_id"])
 target_player_name = target_player["player_name"]
-
 
 # =========================================================
 # 7. RECOMENDAÇÕES
