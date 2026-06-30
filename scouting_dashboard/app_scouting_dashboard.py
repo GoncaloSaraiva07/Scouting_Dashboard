@@ -714,13 +714,16 @@ def plot_player_heatmap(spatial_events, player_id, player_name, event_group="Tod
     return fig, player_events
 
 # =========================================================
-# 5. SIDEBAR
+# 5. SIDEBAR — FILTROS DE SCOUTING
 # =========================================================
 
 with st.sidebar:
     st.header("2. Filtros de Scouting")
 
-    profile_labels = {cfg["label"]: key for key, cfg in PROFILE_CONFIG.items()}
+    profile_labels = {
+        cfg["label"]: key
+        for key, cfg in PROFILE_CONFIG.items()
+    }
 
     selected_profile_label = st.selectbox(
         "Perfil Player DNA",
@@ -738,126 +741,178 @@ with st.sidebar:
         st.error(f"A coluna `{fit_col}` não existe no dataset.")
         st.stop()
 
-    role_df = df[df["role_family"] == expected_role].copy()
+    # Base inicial do perfil selecionado
+    role_df_raw = df[df["role_family"] == expected_role].copy()
 
-    min_minutes = int(st.slider(
-        "Minutos mínimos",
-        min_value=0,
-        max_value=int(max(df[OFFICIAL_MINUTES_COL].max(), 90)),
-        value=min(180, int(max(df[OFFICIAL_MINUTES_COL].max(), 90))),
-        step=30
-    ))
+    if len(role_df_raw) == 0:
+        st.warning("Não existem jogadores disponíveis para este perfil.")
+        st.stop()
 
-# ---------------------------------------------------------
-# Filtro de idade — range slider
-# ---------------------------------------------------------
-
-min_age = None
-max_age = None
-
-if "age" in role_df.columns:
-
-    role_df["age"] = pd.to_numeric(
-        role_df["age"],
+    # Garantir minutos numéricos
+    role_df_raw[OFFICIAL_MINUTES_COL] = pd.to_numeric(
+        role_df_raw[OFFICIAL_MINUTES_COL],
         errors="coerce"
-    )
+    ).fillna(0)
 
-    valid_ages = role_df["age"].dropna()
+    # -----------------------------------------------------
+    # Intervalo de idade — range slider
+    # -----------------------------------------------------
 
-    if len(valid_ages) > 0:
+    min_age = None
+    max_age = None
 
-        min_age_data = int(valid_ages.min())
-        max_age_data = int(valid_ages.max())
+    if "age" in role_df_raw.columns:
 
-        if min_age_data == max_age_data:
-            min_age = min_age_data
-            max_age = max_age_data
-
-            st.info(
-                f"Apenas existe uma idade disponível para este perfil: {min_age_data} anos."
-            )
-
-        else:
-            default_min_age = min_age_data
-            default_max_age = min(26, max_age_data)
-
-            if default_max_age < default_min_age:
-                default_max_age = max_age_data
-
-            age_range = st.slider(
-                "Intervalo de idade",
-                min_value=min_age_data,
-                max_value=max_age_data,
-                value=(default_min_age, default_max_age),
-                step=1
-            )
-
-            min_age = age_range[0]
-            max_age = age_range[1]
-
-    else:
-        st.info(
-            "Filtro de idade indisponível: não existem idades válidas para este perfil."
+        role_df_raw["age"] = pd.to_numeric(
+            role_df_raw["age"],
+            errors="coerce"
         )
 
+        valid_ages = role_df_raw["age"].dropna()
 
-# ---------------------------------------------------------
-# Filtro de valor de mercado — range slider
-# ---------------------------------------------------------
+        if len(valid_ages) > 0:
 
-min_market_value = None
-max_market_value = None
+            min_age_data = int(valid_ages.min())
+            max_age_data = int(valid_ages.max())
 
-if "market_value_eur_2024" in role_df.columns:
+            if min_age_data == max_age_data:
 
-    role_df["market_value_eur_2024"] = pd.to_numeric(
-        role_df["market_value_eur_2024"],
-        errors="coerce"
-    )
+                min_age = min_age_data
+                max_age = max_age_data
 
-    valid_market_values = role_df["market_value_eur_2024"].dropna()
+                st.info(
+                    f"Apenas existe uma idade disponível para este perfil: {min_age_data} anos."
+                )
 
-    if len(valid_market_values) > 0:
+            else:
 
-        min_mv_m = round(float(valid_market_values.min()) / 1_000_000, 1)
-        max_mv_m = round(float(valid_market_values.max()) / 1_000_000, 1)
+                age_range = st.slider(
+                    "Intervalo de idade",
+                    min_value=min_age_data,
+                    max_value=max_age_data,
+                    value=(min_age_data, max_age_data),
+                    step=1
+                )
 
-        if min_mv_m == max_mv_m:
-            min_market_value = min_mv_m * 1_000_000
-            max_market_value = max_mv_m * 1_000_000
-
-            st.info(
-                f"Apenas existe um valor de mercado disponível para este perfil: €{max_mv_m:.1f}M."
-            )
+                min_age = age_range[0]
+                max_age = age_range[1]
 
         else:
-            default_min_mv_m = min_mv_m
-            default_max_mv_m = min(35.0, max_mv_m)
-
-            if default_max_mv_m < default_min_mv_m:
-                default_max_mv_m = max_mv_m
-
-            market_value_range_m = st.slider(
-                "Intervalo de valor de mercado (€M)",
-                min_value=min_mv_m,
-                max_value=max_mv_m,
-                value=(default_min_mv_m, default_max_mv_m),
-                step=0.5
+            st.info(
+                "Filtro de idade indisponível: não existem idades válidas para este perfil."
             )
 
-            min_market_value = market_value_range_m[0] * 1_000_000
-            max_market_value = market_value_range_m[1] * 1_000_000
+    # -----------------------------------------------------
+    # Intervalo de valor de mercado — range slider
+    # -----------------------------------------------------
 
-    else:
-        st.info(
-            "Filtro de valor de mercado indisponível: não existem valores válidos para este perfil."
+    min_market_value = None
+    max_market_value = None
+
+    if "market_value_eur_2024" in role_df_raw.columns:
+
+        role_df_raw["market_value_eur_2024"] = pd.to_numeric(
+            role_df_raw["market_value_eur_2024"],
+            errors="coerce"
         )
+
+        valid_market_values = role_df_raw["market_value_eur_2024"].dropna()
+
+        if len(valid_market_values) > 0:
+
+            min_mv_m = round(float(valid_market_values.min()) / 1_000_000, 1)
+            max_mv_m = round(float(valid_market_values.max()) / 1_000_000, 1)
+
+            if min_mv_m == max_mv_m:
+
+                min_market_value = min_mv_m * 1_000_000
+                max_market_value = max_mv_m * 1_000_000
+
+                st.info(
+                    f"Apenas existe um valor de mercado disponível para este perfil: €{max_mv_m:.1f}M."
+                )
+
+            else:
+
+                market_value_range_m = st.slider(
+                    "Intervalo de valor de mercado (€M)",
+                    min_value=min_mv_m,
+                    max_value=max_mv_m,
+                    value=(min_mv_m, max_mv_m),
+                    step=0.5
+                )
+
+                min_market_value = market_value_range_m[0] * 1_000_000
+                max_market_value = market_value_range_m[1] * 1_000_000
+
+        else:
+            st.info(
+                "Filtro de valor de mercado indisponível: não existem valores válidos para este perfil."
+            )
+
+    # -----------------------------------------------------
+    # Minutos mínimos
+    # -----------------------------------------------------
+
+    max_minutes_available = int(
+        max(
+            1,
+            np.nanmax(role_df_raw[OFFICIAL_MINUTES_COL])
+        )
+    )
+
+    min_minutes = int(
+        st.slider(
+            "Minutos mínimos",
+            min_value=0,
+            max_value=max_minutes_available,
+            value=min(180, max_minutes_available),
+            step=30
+        )
+    )
+
+    # -----------------------------------------------------
+    # Opções adicionais
+    # -----------------------------------------------------
+
+    same_cluster_only = st.checkbox(
+        "Apenas mesmo cluster",
+        value=False
+    )
+
+    same_cluster_bonus = st.checkbox(
+        "Bónus ao mesmo cluster",
+        value=True
+    )
+
+    exclude_same_team = st.checkbox(
+        "Excluir jogadores da mesma seleção/equipa",
+        value=False
+    )
+
+    top_n = st.slider(
+        "Número de recomendações",
+        min_value=5,
+        max_value=30,
+        value=15,
+        step=5
+    )
+
 
 # =========================================================
 # 6. FILTRAR BASE DO PERFIL
 # =========================================================
 
-role_df = role_df[role_df[OFFICIAL_MINUTES_COL] >= min_minutes].copy()
+role_df = role_df_raw.copy()
+
+# ---------------------------------------------------------
+# Aplicar filtro de minutos
+# ---------------------------------------------------------
+
+role_df = role_df[
+    role_df[OFFICIAL_MINUTES_COL] >= min_minutes
+].copy()
+
 
 # ---------------------------------------------------------
 # Aplicar filtro de idade
@@ -873,6 +928,7 @@ if min_age is not None and max_age is not None and "age" in role_df.columns:
     role_df = role_df[
         role_df["age"].between(min_age, max_age)
     ].copy()
+
 
 # ---------------------------------------------------------
 # Aplicar filtro de valor de mercado
@@ -896,7 +952,21 @@ if (
         )
     ].copy()
 
-role_df[fit_col] = pd.to_numeric(role_df[fit_col], errors="coerce").fillna(0)
+
+if len(role_df) == 0:
+    st.warning("Não existem jogadores para os filtros selecionados.")
+    st.stop()
+
+
+# ---------------------------------------------------------
+# Garantir variáveis necessárias
+# ---------------------------------------------------------
+
+role_df[fit_col] = pd.to_numeric(
+    role_df[fit_col],
+    errors="coerce"
+).fillna(0)
+
 role_df["market_opportunity_score"] = pd.to_numeric(
     role_df["market_opportunity_score"],
     errors="coerce"
@@ -904,11 +974,11 @@ role_df["market_opportunity_score"] = pd.to_numeric(
 
 role_df = compute_cluster_fit_score(role_df, fit_col)
 
-if len(role_df) == 0:
-    st.warning("Não existem jogadores para os filtros selecionados.")
-    st.stop()
 
-# Jogador modelo
+# =========================================================
+# 6.1 JOGADOR MODELO — SIDEBAR
+# =========================================================
+
 model_options_df = (
     role_df
     .sort_values(fit_col, ascending=False)
@@ -921,10 +991,7 @@ model_options_df["player_option_label"] = model_options_df.apply(
 )
 
 with st.sidebar:
-    selected_model_label = st.selectbox(
-        "Jogador modelo",
-        model_options_df["player_option_label"].tolist()
-    )
+    st.header("3. Jogador modelo")
 
 target_player = model_options_df[
     model_options_df["player_option_label"] == selected_model_label
