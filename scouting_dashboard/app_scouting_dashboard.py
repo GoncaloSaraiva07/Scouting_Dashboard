@@ -1652,7 +1652,7 @@ with tab_overview:
     col1 = st.container()
 
     with col1:
-    st.markdown("### Top jogadores por Fit Score")
+        st.markdown("### Top jogadores por Fit Score")
 
     fig_fit = px.bar(
         profile_ranking.sort_values(fit_col, ascending=True),
