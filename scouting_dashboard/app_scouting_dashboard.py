@@ -1046,6 +1046,128 @@ profile_ranking = (
 )
 
 # =========================================================
+# FUNÇÕES VISUAIS — BANDEIRA / PAÍS DO JOGADOR MODELO
+# =========================================================
+
+COUNTRY_CODE_MAP = {
+    "Argentina": "ar",
+    "Bolivia": "bo",
+    "Brazil": "br",
+    "Brasil": "br",
+    "Canada": "ca",
+    "Chile": "cl",
+    "Colombia": "co",
+    "Costa Rica": "cr",
+    "Ecuador": "ec",
+    "Jamaica": "jm",
+    "Mexico": "mx",
+    "México": "mx",
+    "Panama": "pa",
+    "Panamá": "pa",
+    "Paraguay": "py",
+    "Peru": "pe",
+    "Perú": "pe",
+    "United States": "us",
+    "United States of America": "us",
+    "USA": "us",
+    "Uruguay": "uy",
+    "Venezuela": "ve",
+}
+
+COUNTRY_THEME_MAP = {
+    "ar": {"accent": "#75AADB", "accent2": "#F6B40E"},
+    "bo": {"accent": "#D52B1E", "accent2": "#007934"},
+    "br": {"accent": "#009B3A", "accent2": "#FFDF00"},
+    "ca": {"accent": "#D80621", "accent2": "#FFFFFF"},
+    "cl": {"accent": "#D52B1E", "accent2": "#0039A6"},
+    "co": {"accent": "#FCD116", "accent2": "#CE1126"},
+    "cr": {"accent": "#002B7F", "accent2": "#CE1126"},
+    "ec": {"accent": "#FFD100", "accent2": "#EF3340"},
+    "jm": {"accent": "#009B3A", "accent2": "#FED100"},
+    "mx": {"accent": "#006847", "accent2": "#CE1126"},
+    "pa": {"accent": "#005293", "accent2": "#D21034"},
+    "py": {"accent": "#D52B1E", "accent2": "#0038A8"},
+    "pe": {"accent": "#D91023", "accent2": "#FFFFFF"},
+    "us": {"accent": "#3C3B6E", "accent2": "#B22234"},
+    "uy": {"accent": "#0038A8", "accent2": "#FCD116"},
+    "ve": {"accent": "#FCD116", "accent2": "#CF142B"},
+}
+
+
+def get_country_code_from_player(row):
+    """
+    Usa primeiro team_name, porque na Copa América representa a seleção.
+    Se não existir, usa nationality.
+    """
+    possible_country = row.get("team_name", None)
+
+    if possible_country is None or pd.isna(possible_country):
+        possible_country = row.get("nationality", None)
+
+    if possible_country is None or pd.isna(possible_country):
+        return None, "n.d."
+
+    country_name = str(possible_country).strip()
+
+    country_code = COUNTRY_CODE_MAP.get(country_name)
+
+    return country_code, country_name
+
+
+def get_flag_url(country_code):
+    """
+    Usa FlagCDN para imagem da bandeira.
+    Exemplo: https://flagcdn.com/w640/co.png
+    """
+    if country_code is None:
+        return ""
+
+    return f"https://flagcdn.com/w640/{country_code.lower()}.png"
+
+
+def get_country_theme(country_code):
+    """
+    Define cores principais do cartão.
+    """
+    default_theme = {
+        "accent": "#667085",
+        "accent2": "#98A2B3"
+    }
+
+    if country_code is None:
+        return default_theme
+
+    return COUNTRY_THEME_MAP.get(
+        country_code.lower(),
+        default_theme
+    )
+
+
+def safe_text(value, default="n.d."):
+    if value is None:
+        return default
+
+    try:
+        if pd.isna(value):
+            return default
+    except Exception:
+        pass
+
+    return html_lib.escape(str(value))
+
+
+def safe_numeric_text(value, decimals=3, default="n.d."):
+    value = pd.to_numeric(
+        pd.Series([value]),
+        errors="coerce"
+    ).iloc[0]
+
+    if pd.isna(value):
+        return default
+
+    return f"{value:.{decimals}f}"
+
+# =========================================================
 # JOGADOR MODELO EM DESTAQUE — COMPONENT HTML
 # =========================================================
 
@@ -1109,133 +1231,267 @@ model_fit_text = safe_numeric_text(
     decimals=3
 )
 
+# =========================================================
+# JOGADOR MODELO EM DESTAQUE — CARTÃO COM BANDEIRA
+# =========================================================
+
+country_code, model_country_name = get_country_code_from_player(target_player)
+flag_url = get_flag_url(country_code)
+country_theme = get_country_theme(country_code)
+
+accent_color = country_theme["accent"]
+accent_color_2 = country_theme["accent2"]
+
+model_player_name = safe_text(target_player_name)
+model_position = safe_text(target_player.get("position", "n.d."))
+model_team = safe_text(target_player.get("team_name", "n.d."))
+model_country = safe_text(model_country_name)
+model_profile = safe_text(selected_profile_label)
+model_club = safe_text(target_player.get("club", "n.d."))
+model_league = safe_text(target_player.get("league", "n.d."))
+model_cluster = safe_text(target_player.get("cluster_label", "Sem cluster"))
+
+model_age_value = pd.to_numeric(
+    pd.Series([target_player.get("age", np.nan)]),
+    errors="coerce"
+).iloc[0]
+
+if pd.isna(model_age_value):
+    model_age_text = "n.d."
+else:
+    model_age_text = f"{int(model_age_value)} anos"
+
+model_market_text = format_eur(
+    target_player.get("market_value_eur_2024", np.nan)
+)
+
+model_minutes_value = pd.to_numeric(
+    pd.Series([target_player.get(OFFICIAL_MINUTES_COL, np.nan)]),
+    errors="coerce"
+).iloc[0]
+
+if pd.isna(model_minutes_value):
+    model_minutes_text = "n.d."
+else:
+    model_minutes_text = f"{int(model_minutes_value)} min"
+
+model_fit_text = safe_numeric_text(
+    target_player.get(fit_col, np.nan),
+    decimals=3
+)
+
+if flag_url != "":
+    flag_background_css = f"""
+        background-image:
+            linear-gradient(135deg, rgba(11,18,32,0.94) 0%, rgba(23,32,51,0.90) 50%, rgba(36,52,77,0.86) 100%),
+            url('{flag_url}');
+        background-size: cover;
+        background-position: center;
+    """
+else:
+    flag_background_css = """
+        background: linear-gradient(135deg, #0B1220 0%, #172033 55%, #25344D 100%);
+    """
+
+
 model_card_html = f"""
 <div style="
-    background: linear-gradient(135deg, #0B1220 0%, #172033 55%, #25344D 100%);
-    border-radius: 22px;
-    padding: 28px 32px;
+    {flag_background_css}
+    position: relative;
+    overflow: hidden;
+    border-radius: 24px;
+    padding: 30px 34px;
     color: white;
     font-family: Inter, Segoe UI, Arial, sans-serif;
-    box-shadow: 0 14px 34px rgba(15, 23, 42, 0.28);
-    border: 1px solid rgba(255,255,255,0.08);
+    box-shadow: 0 16px 38px rgba(15, 23, 42, 0.30);
+    border: 1px solid rgba(255,255,255,0.10);
     margin-bottom: 18px;
 ">
-    <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 8px;">
-        <div style="font-size: 38px;">🎯</div>
-        <div>
-            <div style="
-                font-size: 30px;
-                font-weight: 850;
-                letter-spacing: 0.3px;
-                line-height: 1.15;
-            ">
-                Jogador modelo: {model_player_name}
-            </div>
-            <div style="
-                font-size: 15px;
-                color: #D0D5DD;
-                margin-top: 6px;
-            ">
-                {model_position} · {model_team} · Perfil selecionado: {model_profile}
-            </div>
-        </div>
-    </div>
-
-    <div style="margin-top: 18px; margin-bottom: 20px;">
-        <span style="
-            display: inline-block;
-            background: rgba(255, 255, 255, 0.12);
-            border: 1px solid rgba(255, 255, 255, 0.16);
-            color: #F9FAFB;
-            border-radius: 999px;
-            padding: 7px 13px;
-            font-size: 13px;
-            font-weight: 650;
-            margin-right: 8px;
-            margin-bottom: 8px;
-        ">Clube: {model_club}</span>
-
-        <span style="
-            display: inline-block;
-            background: rgba(255, 255, 255, 0.12);
-            border: 1px solid rgba(255, 255, 255, 0.16);
-            color: #F9FAFB;
-            border-radius: 999px;
-            padding: 7px 13px;
-            font-size: 13px;
-            font-weight: 650;
-            margin-right: 8px;
-            margin-bottom: 8px;
-        ">Liga: {model_league}</span>
-
-        <span style="
-            display: inline-block;
-            background: rgba(255, 255, 255, 0.12);
-            border: 1px solid rgba(255, 255, 255, 0.16);
-            color: #F9FAFB;
-            border-radius: 999px;
-            padding: 7px 13px;
-            font-size: 13px;
-            font-weight: 650;
-            margin-right: 8px;
-            margin-bottom: 8px;
-        ">Cluster: {model_cluster}</span>
-    </div>
 
     <div style="
-        display: grid;
-        grid-template-columns: repeat(5, minmax(120px, 1fr));
-        gap: 14px;
-        margin-top: 12px;
-    ">
-        <div style="
-            background: rgba(255,255,255,0.08);
-            border: 1px solid rgba(255,255,255,0.14);
-            border-radius: 15px;
-            padding: 15px 16px;
-        ">
-            <div style="font-size: 12px; color: #CBD5E1; margin-bottom: 7px; text-transform: uppercase; letter-spacing: 0.5px;">Idade</div>
-            <div style="font-size: 21px; font-weight: 800;">{model_age_text}</div>
+        position: absolute;
+        top: -40px;
+        right: -40px;
+        width: 210px;
+        height: 210px;
+        border-radius: 50%;
+        background: radial-gradient(circle, {accent_color}55 0%, rgba(255,255,255,0.00) 70%);
+    "></div>
+
+    <div style="
+        position: absolute;
+        bottom: -70px;
+        left: -50px;
+        width: 260px;
+        height: 260px;
+        border-radius: 50%;
+        background: radial-gradient(circle, {accent_color_2}38 0%, rgba(255,255,255,0.00) 72%);
+    "></div>
+
+    <div style="position: relative; z-index: 2;">
+
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px;">
+            <div style="display: flex; align-items: center; gap: 16px;">
+                <div style="
+                    width: 54px;
+                    height: 54px;
+                    border-radius: 16px;
+                    background: linear-gradient(135deg, {accent_color}, {accent_color_2});
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 30px;
+                    box-shadow: 0 8px 18px rgba(0,0,0,0.25);
+                ">🎯</div>
+
+                <div>
+                    <div style="
+                        font-size: 31px;
+                        font-weight: 900;
+                        letter-spacing: 0.3px;
+                        line-height: 1.15;
+                    ">
+                        Jogador modelo: {model_player_name}
+                    </div>
+
+                    <div style="
+                        font-size: 15px;
+                        color: #E4E7EC;
+                        margin-top: 7px;
+                    ">
+                        {model_position} · {model_team} · Perfil selecionado: {model_profile}
+                    </div>
+                </div>
+            </div>
+
+            <div style="
+                text-align: right;
+                min-width: 130px;
+            ">
+                <div style="
+                    font-size: 12px;
+                    color: #D0D5DD;
+                    text-transform: uppercase;
+                    letter-spacing: 0.7px;
+                    margin-bottom: 6px;
+                ">Seleção</div>
+
+                <div style="
+                    font-size: 20px;
+                    font-weight: 850;
+                ">{model_country}</div>
+            </div>
+        </div>
+
+        <div style="margin-top: 20px; margin-bottom: 22px;">
+            <span style="
+                display: inline-block;
+                background: rgba(255, 255, 255, 0.13);
+                border: 1px solid rgba(255, 255, 255, 0.18);
+                color: #F9FAFB;
+                border-radius: 999px;
+                padding: 7px 13px;
+                font-size: 13px;
+                font-weight: 700;
+                margin-right: 8px;
+                margin-bottom: 8px;
+                backdrop-filter: blur(4px);
+            ">Clube: {model_club}</span>
+
+            <span style="
+                display: inline-block;
+                background: rgba(255, 255, 255, 0.13);
+                border: 1px solid rgba(255, 255, 255, 0.18);
+                color: #F9FAFB;
+                border-radius: 999px;
+                padding: 7px 13px;
+                font-size: 13px;
+                font-weight: 700;
+                margin-right: 8px;
+                margin-bottom: 8px;
+                backdrop-filter: blur(4px);
+            ">Liga: {model_league}</span>
+
+            <span style="
+                display: inline-block;
+                background: rgba(255, 255, 255, 0.13);
+                border: 1px solid rgba(255, 255, 255, 0.18);
+                color: #F9FAFB;
+                border-radius: 999px;
+                padding: 7px 13px;
+                font-size: 13px;
+                font-weight: 700;
+                margin-right: 8px;
+                margin-bottom: 8px;
+                backdrop-filter: blur(4px);
+            ">Cluster: {model_cluster}</span>
         </div>
 
         <div style="
-            background: rgba(255,255,255,0.08);
-            border: 1px solid rgba(255,255,255,0.14);
-            border-radius: 15px;
-            padding: 15px 16px;
+            display: grid;
+            grid-template-columns: repeat(5, minmax(120px, 1fr));
+            gap: 14px;
+            margin-top: 12px;
         ">
-            <div style="font-size: 12px; color: #CBD5E1; margin-bottom: 7px; text-transform: uppercase; letter-spacing: 0.5px;">Valor mercado</div>
-            <div style="font-size: 21px; font-weight: 800;">{model_market_text}</div>
-        </div>
+            <div style="
+                background: rgba(255,255,255,0.10);
+                border: 1px solid rgba(255,255,255,0.16);
+                border-left: 4px solid {accent_color};
+                border-radius: 16px;
+                padding: 15px 16px;
+                backdrop-filter: blur(5px);
+            ">
+                <div style="font-size: 12px; color: #D0D5DD; margin-bottom: 7px; text-transform: uppercase; letter-spacing: 0.5px;">Idade</div>
+                <div style="font-size: 22px; font-weight: 900;">{model_age_text}</div>
+            </div>
 
-        <div style="
-            background: rgba(255,255,255,0.08);
-            border: 1px solid rgba(255,255,255,0.14);
-            border-radius: 15px;
-            padding: 15px 16px;
-        ">
-            <div style="font-size: 12px; color: #CBD5E1; margin-bottom: 7px; text-transform: uppercase; letter-spacing: 0.5px;">Minutos</div>
-            <div style="font-size: 21px; font-weight: 800;">{model_minutes_text}</div>
-        </div>
+            <div style="
+                background: rgba(255,255,255,0.10);
+                border: 1px solid rgba(255,255,255,0.16);
+                border-left: 4px solid {accent_color_2};
+                border-radius: 16px;
+                padding: 15px 16px;
+                backdrop-filter: blur(5px);
+            ">
+                <div style="font-size: 12px; color: #D0D5DD; margin-bottom: 7px; text-transform: uppercase; letter-spacing: 0.5px;">Valor mercado</div>
+                <div style="font-size: 22px; font-weight: 900;">{model_market_text}</div>
+            </div>
 
-        <div style="
-            background: rgba(255,255,255,0.08);
-            border: 1px solid rgba(255,255,255,0.14);
-            border-radius: 15px;
-            padding: 15px 16px;
-        ">
-            <div style="font-size: 12px; color: #CBD5E1; margin-bottom: 7px; text-transform: uppercase; letter-spacing: 0.5px;">Fit Score</div>
-            <div style="font-size: 21px; font-weight: 800;">{model_fit_text}</div>
-        </div>
+            <div style="
+                background: rgba(255,255,255,0.10);
+                border: 1px solid rgba(255,255,255,0.16);
+                border-left: 4px solid {accent_color};
+                border-radius: 16px;
+                padding: 15px 16px;
+                backdrop-filter: blur(5px);
+            ">
+                <div style="font-size: 12px; color: #D0D5DD; margin-bottom: 7px; text-transform: uppercase; letter-spacing: 0.5px;">Minutos</div>
+                <div style="font-size: 22px; font-weight: 900;">{model_minutes_text}</div>
+            </div>
 
-        <div style="
-            background: rgba(255,255,255,0.08);
-            border: 1px solid rgba(255,255,255,0.14);
-            border-radius: 15px;
-            padding: 15px 16px;
-        ">
-            <div style="font-size: 12px; color: #CBD5E1; margin-bottom: 7px; text-transform: uppercase; letter-spacing: 0.5px;">Perfil DNA</div>
-            <div style="font-size: 18px; font-weight: 800;">{model_profile}</div>
+            <div style="
+                background: rgba(255,255,255,0.10);
+                border: 1px solid rgba(255,255,255,0.16);
+                border-left: 4px solid {accent_color_2};
+                border-radius: 16px;
+                padding: 15px 16px;
+                backdrop-filter: blur(5px);
+            ">
+                <div style="font-size: 12px; color: #D0D5DD; margin-bottom: 7px; text-transform: uppercase; letter-spacing: 0.5px;">Fit Score</div>
+                <div style="font-size: 22px; font-weight: 900;">{model_fit_text}</div>
+            </div>
+
+            <div style="
+                background: rgba(255,255,255,0.10);
+                border: 1px solid rgba(255,255,255,0.16);
+                border-left: 4px solid {accent_color};
+                border-radius: 16px;
+                padding: 15px 16px;
+                backdrop-filter: blur(5px);
+            ">
+                <div style="font-size: 12px; color: #D0D5DD; margin-bottom: 7px; text-transform: uppercase; letter-spacing: 0.5px;">Perfil DNA</div>
+                <div style="font-size: 18px; font-weight: 900;">{model_profile}</div>
+            </div>
         </div>
     </div>
 </div>
@@ -1243,7 +1499,7 @@ model_card_html = f"""
 
 components.html(
     model_card_html,
-    height=330,
+    height=350,
     scrolling=False
 )
 
