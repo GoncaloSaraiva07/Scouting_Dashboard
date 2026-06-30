@@ -29,7 +29,7 @@ st.set_page_config(
 )
 
 # =========================================================
-# HEADER VISUAL — LOGO COPA AMÉRICA
+# HEADER VISUAL — DASHBOARD
 # =========================================================
 
 APP_DIR = Path(__file__).parent
@@ -37,10 +37,6 @@ COPA_LOGO_PATH = APP_DIR / "assets" / "copa_america_2024_logo.png"
 
 
 def image_to_base64(image_path):
-    """
-    Converte imagem local para base64 para renderização em HTML.
-    """
-
     image_path = Path(image_path)
 
     if not image_path.exists():
@@ -58,19 +54,16 @@ def image_to_base64(image_path):
 
 
 def render_dashboard_header():
-    """
-    Header customizado com título à esquerda e logo da Copa América 2024 à direita.
-    """
-
     logo_base64 = image_to_base64(COPA_LOGO_PATH)
 
     if logo_base64 is None:
         logo_html = """
         <div style="
-            color: #98A2B3;
-            font-size: 14px;
+            font-size: 15px;
             font-weight: 800;
+            color: #98A2B3;
             text-align: right;
+            white-space: nowrap;
         ">
             Copa América 2024
         </div>
@@ -78,75 +71,88 @@ def render_dashboard_header():
     else:
         logo_html = f"""
         <img src="{logo_base64}" style="
-            width: 150px;
+            width: 155px;
             max-height: 95px;
             object-fit: contain;
             display: block;
-            margin-left: auto;
         ">
         """
 
-    st.markdown(
-        f"""
+    header_html = f"""
+    <div style="
+        width: 100%;
+        box-sizing: border-box;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 28px;
+        padding: 10px 4px 20px 4px;
+        border-bottom: 1px solid rgba(208, 213, 221, 0.55);
+        font-family: Inter, Segoe UI, Arial, sans-serif;
+    ">
+
         <div style="
             display: flex;
             align-items: center;
-            justify-content: space-between;
-            gap: 24px;
-            padding: 8px 0 18px 0;
-            border-bottom: 1px solid rgba(208, 213, 221, 0.45);
-            margin-bottom: 18px;
+            gap: 16px;
+            min-width: 0;
         ">
-
-            <div style="display: flex; align-items: center; gap: 16px;">
-                <div style="
-                    width: 54px;
-                    height: 54px;
-                    border-radius: 16px;
-                    background: linear-gradient(135deg, #1D4ED8, #06B6D4);
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    font-size: 30px;
-                    box-shadow: 0 8px 22px rgba(29, 78, 216, 0.25);
-                ">
-                    ⚽
-                </div>
-
-                <div>
-                    <div style="
-                        font-size: 38px;
-                        font-weight: 900;
-                        color: #1D2939;
-                        letter-spacing: 1.2px;
-                        line-height: 1.05;
-                    ">
-                        Scouting Dashboard
-                    </div>
-
-                    <div style="
-                        font-size: 16px;
-                        color: #667085;
-                        margin-top: 7px;
-                    ">
-                        Copa América 2024 · Player DNA · Similaridade · Mercado · Recomendação
-                    </div>
-                </div>
-            </div>
-
             <div style="
-                min-width: 160px;
+                width: 56px;
+                height: 56px;
+                min-width: 56px;
+                border-radius: 17px;
+                background: linear-gradient(135deg, #1D4ED8, #06B6D4);
                 display: flex;
-                justify-content: flex-end;
                 align-items: center;
+                justify-content: center;
+                font-size: 31px;
+                box-shadow: 0 9px 24px rgba(29, 78, 216, 0.28);
             ">
-                {logo_html}
+                ⚽
             </div>
 
+            <div>
+                <div style="
+                    font-size: 39px;
+                    font-weight: 950;
+                    color: #1D2939;
+                    letter-spacing: 1.2px;
+                    line-height: 1.05;
+                    white-space: nowrap;
+                ">
+                    Scouting Dashboard
+                </div>
+
+                <div style="
+                    font-size: 16px;
+                    color: #667085;
+                    margin-top: 8px;
+                    white-space: nowrap;
+                ">
+                    Copa América 2024 · Player DNA · Similaridade · Mercado · Recomendação
+                </div>
+            </div>
         </div>
-        """,
-        unsafe_allow_html=True
+
+        <div style="
+            min-width: 170px;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+        ">
+            {logo_html}
+        </div>
+
+    </div>
+    """
+
+    components.html(
+        header_html,
+        height=120,
+        scrolling=False
     )
+
 
 render_dashboard_header()
 
@@ -235,31 +241,6 @@ if data is None:
     st.stop()
 
 df = data.copy()
-
-# Carregar eventos espaciais do Notebook
-
-@st.cache_data
-def load_spatial_events(uploaded_file=None, default_path="outputs/dashboard_spatial_events.csv"):
-    """
-    Carrega eventos espaciais exportados do notebook.
-    Espera colunas:
-    statsbomb_player_id, player_name, event_type, x, y
-    """
-
-    if uploaded_file is not None:
-        return pd.read_csv(uploaded_file)
-
-    candidate_paths = [
-        Path(default_path),
-        Path("dashboard_spatial_events.csv"),
-        Path("outputs/dashboard_spatial_events.csv"),
-    ]
-
-    for path in candidate_paths:
-        if path.exists():
-            return pd.read_csv(path)
-
-    return None
 
 # =========================================================
 # 3. CONFIGURAÇÕES E NORMALIZAÇÃO
