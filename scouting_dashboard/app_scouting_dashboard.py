@@ -9,6 +9,7 @@ import pandas as pd
 import streamlit as st
 import plotly.express as px
 import plotly.graph_objects as go
+import html
 
 from pathlib import Path
 from sklearn.preprocessing import MinMaxScaler
@@ -1045,132 +1046,207 @@ st.subheader(f"Perfil selecionado: {selected_profile_label}")
 # JOGADOR MODELO EM DESTAQUE
 # =========================================================
 
-model_age_value = target_player.get("age", np.nan)
+def safe_text(value, default="n.d."):
+    if value is None:
+        return default
+    if pd.isna(value):
+        return default
+    return html.escape(str(value))
+
+
+def safe_number(value, decimals=3, default="n.d."):
+    value = pd.to_numeric(
+        pd.Series([value]),
+        errors="coerce"
+    ).iloc[0]
+
+    if pd.isna(value):
+        return default
+
+    return f"{value:.{decimals}f}"
+
+
+model_player_name = safe_text(target_player_name)
+model_position = safe_text(target_player.get("position", "n.d."))
+model_team = safe_text(target_player.get("team_name", "n.d."))
+model_profile = safe_text(selected_profile_label)
+
+model_age_value = pd.to_numeric(
+    pd.Series([target_player.get("age", np.nan)]),
+    errors="coerce"
+).iloc[0]
 
 if pd.isna(model_age_value):
     model_age_text = "n.d."
 else:
     model_age_text = f"{int(model_age_value)} anos"
 
-
 model_market_text = format_eur(
     target_player.get("market_value_eur_2024", np.nan)
 )
 
-
-model_minutes_value = target_player.get(OFFICIAL_MINUTES_COL, np.nan)
+model_minutes_value = pd.to_numeric(
+    pd.Series([target_player.get(OFFICIAL_MINUTES_COL, np.nan)]),
+    errors="coerce"
+).iloc[0]
 
 if pd.isna(model_minutes_value):
     model_minutes_text = "n.d."
 else:
     model_minutes_text = f"{int(model_minutes_value)} min"
 
+model_fit_text = safe_number(
+    target_player.get(fit_col, np.nan),
+    decimals=3
+)
 
-model_fit_value = pd.to_numeric(
-    pd.Series([target_player.get(fit_col, np.nan)]),
-    errors="coerce"
-).iloc[0]
+model_cluster_text = safe_text(
+    target_player.get("cluster_label", "Sem cluster")
+)
 
-if pd.isna(model_fit_value):
-    model_fit_text = "n.d."
-else:
-    model_fit_text = f"{model_fit_value:.3f}"
+model_club_text = safe_text(
+    target_player.get("club", "n.d.")
+)
 
-
-model_cluster_text = target_player.get("cluster_label", "n.d.")
-
-if pd.isna(model_cluster_text):
-    model_cluster_text = "n.d."
-
+model_league_text = safe_text(
+    target_player.get("league", "n.d.")
+)
 
 st.markdown(
     """
     <style>
-    .model-player-card {
-        background: linear-gradient(135deg, #101828 0%, #1D2939 55%, #344054 100%);
+    .model-card {
+        background: linear-gradient(135deg, #0B1220 0%, #172033 55%, #24324A 100%);
+        border-radius: 22px;
+        padding: 28px 32px;
+        margin-top: 10px;
+        margin-bottom: 28px;
         color: white;
-        border-radius: 18px;
-        padding: 24px 28px;
-        margin-top: 12px;
-        margin-bottom: 24px;
-        box-shadow: 0 10px 28px rgba(16, 24, 40, 0.18);
+        box-shadow: 0 14px 34px rgba(15, 23, 42, 0.28);
+        border: 1px solid rgba(255,255,255,0.08);
     }
 
-    .model-player-title {
-        font-size: 28px;
-        font-weight: 800;
-        margin-bottom: 4px;
-        letter-spacing: 0.4px;
+    .model-card-header {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin-bottom: 8px;
     }
 
-    .model-player-subtitle {
+    .model-card-icon {
+        font-size: 34px;
+    }
+
+    .model-card-title {
+        font-size: 30px;
+        font-weight: 850;
+        letter-spacing: 0.3px;
+        line-height: 1.15;
+    }
+
+    .model-card-subtitle {
         font-size: 15px;
         color: #D0D5DD;
-        margin-bottom: 18px;
+        margin-bottom: 22px;
     }
 
-    .model-player-grid {
+    .model-card-badge {
+        display: inline-block;
+        background: rgba(255, 255, 255, 0.12);
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        color: #F9FAFB;
+        border-radius: 999px;
+        padding: 6px 12px;
+        font-size: 13px;
+        font-weight: 650;
+        margin-top: 6px;
+        margin-right: 8px;
+    }
+
+    .model-card-grid {
         display: grid;
-        grid-template-columns: repeat(5, 1fr);
+        grid-template-columns: repeat(5, minmax(120px, 1fr));
         gap: 14px;
+        margin-top: 20px;
     }
 
-    .model-player-metric {
+    .model-card-metric {
         background: rgba(255, 255, 255, 0.08);
-        border: 1px solid rgba(255, 255, 255, 0.12);
-        border-radius: 12px;
-        padding: 12px 14px;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        border-radius: 15px;
+        padding: 15px 16px;
     }
 
-    .model-player-label {
+    .model-card-label {
         font-size: 12px;
-        color: #D0D5DD;
-        margin-bottom: 5px;
+        color: #CBD5E1;
+        margin-bottom: 7px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
     }
 
-    .model-player-value {
-        font-size: 18px;
-        font-weight: 700;
+    .model-card-value {
+        font-size: 20px;
+        font-weight: 800;
         color: #FFFFFF;
+        line-height: 1.15;
+    }
+
+    @media (max-width: 900px) {
+        .model-card-grid {
+            grid-template-columns: repeat(2, minmax(120px, 1fr));
+        }
+
+        .model-card-title {
+            font-size: 24px;
+        }
     }
     </style>
     """,
     unsafe_allow_html=True
 )
 
-
 st.markdown(
     f"""
-    <div class="model-player-card">
-        <div class="model-player-title">🎯 Jogador modelo: {target_player_name}</div>
-        <div class="model-player-subtitle">
-            {target_player.get("position", "n.d.")} · {target_player.get("team_name", "n.d.")} · Perfil: {selected_profile_label}
+    <div class="model-card">
+        <div class="model-card-header">
+            <div class="model-card-icon">🎯</div>
+            <div>
+                <div class="model-card-title">Jogador modelo: {model_player_name}</div>
+                <div class="model-card-subtitle">
+                    {model_position} · {model_team} · Perfil selecionado: {model_profile}
+                </div>
+            </div>
         </div>
 
-        <div class="model-player-grid">
-            <div class="model-player-metric">
-                <div class="model-player-label">Idade</div>
-                <div class="model-player-value">{model_age_text}</div>
+        <span class="model-card-badge">Clube: {model_club_text}</span>
+        <span class="model-card-badge">Liga: {model_league_text}</span>
+        <span class="model-card-badge">Cluster: {model_cluster_text}</span>
+
+        <div class="model-card-grid">
+            <div class="model-card-metric">
+                <div class="model-card-label">Idade</div>
+                <div class="model-card-value">{model_age_text}</div>
             </div>
 
-            <div class="model-player-metric">
-                <div class="model-player-label">Valor de mercado</div>
-                <div class="model-player-value">{model_market_text}</div>
+            <div class="model-card-metric">
+                <div class="model-card-label">Valor mercado</div>
+                <div class="model-card-value">{model_market_text}</div>
             </div>
 
-            <div class="model-player-metric">
-                <div class="model-player-label">Minutos</div>
-                <div class="model-player-value">{model_minutes_text}</div>
+            <div class="model-card-metric">
+                <div class="model-card-label">Minutos</div>
+                <div class="model-card-value">{model_minutes_text}</div>
             </div>
 
-            <div class="model-player-metric">
-                <div class="model-player-label">Fit Score</div>
-                <div class="model-player-value">{model_fit_text}</div>
+            <div class="model-card-metric">
+                <div class="model-card-label">Fit Score</div>
+                <div class="model-card-value">{model_fit_text}</div>
             </div>
 
-            <div class="model-player-metric">
-                <div class="model-player-label">Cluster</div>
-                <div class="model-player-value">{model_cluster_text}</div>
+            <div class="model-card-metric">
+                <div class="model-card-label">Perfil DNA</div>
+                <div class="model-card-value">{model_profile}</div>
             </div>
         </div>
     </div>
