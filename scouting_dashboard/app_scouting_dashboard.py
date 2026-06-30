@@ -9,7 +9,8 @@ import pandas as pd
 import streamlit as st
 import plotly.express as px
 import plotly.graph_objects as go
-import html
+import html as html_lib
+import streamlit.components.v1 as components
 
 from pathlib import Path
 from sklearn.preprocessing import MinMaxScaler
@@ -978,10 +979,13 @@ role_df["market_opportunity_score"] = pd.to_numeric(
 
 role_df = compute_cluster_fit_score(role_df, fit_col)
 
+# =========================================================
+# 6.1 JOGADOR MODELO — SELEÇÃO CENTRAL
+# =========================================================
 
-# =========================================================
-# 6.1 JOGADOR MODELO — SIDEBAR
-# =========================================================
+st.subheader(f"Perfil selecionado: {selected_profile_label}")
+
+st.markdown("### Selecionar o Jogador Modelo")
 
 model_options_df = (
     role_df
@@ -994,13 +998,12 @@ model_options_df["player_option_label"] = model_options_df.apply(
     axis=1
 )
 
-with st.sidebar:
-    st.header("3. Jogador modelo")
-
-    selected_model_label = st.selectbox(
-        "Selecionar jogador modelo",
-        model_options_df["player_option_label"].tolist()
-    )
+selected_model_label = st.selectbox(
+    "Selecionar jogador modelo",
+    model_options_df["player_option_label"].tolist(),
+    index=0,
+    key="central_model_player"
+)
 
 target_player = model_options_df[
     model_options_df["player_option_label"] == selected_model_label
@@ -1035,26 +1038,22 @@ profile_ranking = (
     .copy()
 )
 
-
 # =========================================================
-# 8. KPIS
-# =========================================================
-
-st.subheader(f"Perfil selecionado: {selected_profile_label}")
-
-# =========================================================
-# JOGADOR MODELO EM DESTAQUE
+# JOGADOR MODELO EM DESTAQUE — COMPONENT HTML
 # =========================================================
 
 def safe_text(value, default="n.d."):
     if value is None:
         return default
-    if pd.isna(value):
-        return default
-    return html.escape(str(value))
+    try:
+        if pd.isna(value):
+            return default
+    except Exception:
+        pass
+    return html_lib.escape(str(value))
 
 
-def safe_number(value, decimals=3, default="n.d."):
+def safe_numeric_text(value, decimals=3, default="n.d."):
     value = pd.to_numeric(
         pd.Series([value]),
         errors="coerce"
@@ -1070,6 +1069,9 @@ model_player_name = safe_text(target_player_name)
 model_position = safe_text(target_player.get("position", "n.d."))
 model_team = safe_text(target_player.get("team_name", "n.d."))
 model_profile = safe_text(selected_profile_label)
+model_club = safe_text(target_player.get("club", "n.d."))
+model_league = safe_text(target_player.get("league", "n.d."))
+model_cluster = safe_text(target_player.get("cluster_label", "Sem cluster"))
 
 model_age_value = pd.to_numeric(
     pd.Series([target_player.get("age", np.nan)]),
@@ -1095,163 +1097,147 @@ if pd.isna(model_minutes_value):
 else:
     model_minutes_text = f"{int(model_minutes_value)} min"
 
-model_fit_text = safe_number(
+model_fit_text = safe_numeric_text(
     target_player.get(fit_col, np.nan),
     decimals=3
 )
 
-model_cluster_text = safe_text(
-    target_player.get("cluster_label", "Sem cluster")
-)
-
-model_club_text = safe_text(
-    target_player.get("club", "n.d.")
-)
-
-model_league_text = safe_text(
-    target_player.get("league", "n.d.")
-)
-
-st.markdown(
-    """
-    <style>
-    .model-card {
-        background: linear-gradient(135deg, #0B1220 0%, #172033 55%, #24324A 100%);
-        border-radius: 22px;
-        padding: 28px 32px;
-        margin-top: 10px;
-        margin-bottom: 28px;
-        color: white;
-        box-shadow: 0 14px 34px rgba(15, 23, 42, 0.28);
-        border: 1px solid rgba(255,255,255,0.08);
-    }
-
-    .model-card-header {
-        display: flex;
-        align-items: center;
-        gap: 14px;
-        margin-bottom: 8px;
-    }
-
-    .model-card-icon {
-        font-size: 34px;
-    }
-
-    .model-card-title {
-        font-size: 30px;
-        font-weight: 850;
-        letter-spacing: 0.3px;
-        line-height: 1.15;
-    }
-
-    .model-card-subtitle {
-        font-size: 15px;
-        color: #D0D5DD;
-        margin-bottom: 22px;
-    }
-
-    .model-card-badge {
-        display: inline-block;
-        background: rgba(255, 255, 255, 0.12);
-        border: 1px solid rgba(255, 255, 255, 0.16);
-        color: #F9FAFB;
-        border-radius: 999px;
-        padding: 6px 12px;
-        font-size: 13px;
-        font-weight: 650;
-        margin-top: 6px;
-        margin-right: 8px;
-    }
-
-    .model-card-grid {
-        display: grid;
-        grid-template-columns: repeat(5, minmax(120px, 1fr));
-        gap: 14px;
-        margin-top: 20px;
-    }
-
-    .model-card-metric {
-        background: rgba(255, 255, 255, 0.08);
-        border: 1px solid rgba(255, 255, 255, 0.14);
-        border-radius: 15px;
-        padding: 15px 16px;
-    }
-
-    .model-card-label {
-        font-size: 12px;
-        color: #CBD5E1;
-        margin-bottom: 7px;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-
-    .model-card-value {
-        font-size: 20px;
-        font-weight: 800;
-        color: #FFFFFF;
-        line-height: 1.15;
-    }
-
-    @media (max-width: 900px) {
-        .model-card-grid {
-            grid-template-columns: repeat(2, minmax(120px, 1fr));
-        }
-
-        .model-card-title {
-            font-size: 24px;
-        }
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
-
-st.markdown(
-    f"""
-    <div class="model-card">
-        <div class="model-card-header">
-            <div class="model-card-icon">🎯</div>
-            <div>
-                <div class="model-card-title">Jogador modelo: {model_player_name}</div>
-                <div class="model-card-subtitle">
-                    {model_position} · {model_team} · Perfil selecionado: {model_profile}
-                </div>
+model_card_html = f"""
+<div style="
+    background: linear-gradient(135deg, #0B1220 0%, #172033 55%, #25344D 100%);
+    border-radius: 22px;
+    padding: 28px 32px;
+    color: white;
+    font-family: Inter, Segoe UI, Arial, sans-serif;
+    box-shadow: 0 14px 34px rgba(15, 23, 42, 0.28);
+    border: 1px solid rgba(255,255,255,0.08);
+    margin-bottom: 18px;
+">
+    <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 8px;">
+        <div style="font-size: 38px;">🎯</div>
+        <div>
+            <div style="
+                font-size: 30px;
+                font-weight: 850;
+                letter-spacing: 0.3px;
+                line-height: 1.15;
+            ">
+                Jogador modelo: {model_player_name}
             </div>
-        </div>
-
-        <span class="model-card-badge">Clube: {model_club_text}</span>
-        <span class="model-card-badge">Liga: {model_league_text}</span>
-        <span class="model-card-badge">Cluster: {model_cluster_text}</span>
-
-        <div class="model-card-grid">
-            <div class="model-card-metric">
-                <div class="model-card-label">Idade</div>
-                <div class="model-card-value">{model_age_text}</div>
-            </div>
-
-            <div class="model-card-metric">
-                <div class="model-card-label">Valor mercado</div>
-                <div class="model-card-value">{model_market_text}</div>
-            </div>
-
-            <div class="model-card-metric">
-                <div class="model-card-label">Minutos</div>
-                <div class="model-card-value">{model_minutes_text}</div>
-            </div>
-
-            <div class="model-card-metric">
-                <div class="model-card-label">Fit Score</div>
-                <div class="model-card-value">{model_fit_text}</div>
-            </div>
-
-            <div class="model-card-metric">
-                <div class="model-card-label">Perfil DNA</div>
-                <div class="model-card-value">{model_profile}</div>
+            <div style="
+                font-size: 15px;
+                color: #D0D5DD;
+                margin-top: 6px;
+            ">
+                {model_position} · {model_team} · Perfil selecionado: {model_profile}
             </div>
         </div>
     </div>
-    """,
-    unsafe_allow_html=True
+
+    <div style="margin-top: 18px; margin-bottom: 20px;">
+        <span style="
+            display: inline-block;
+            background: rgba(255, 255, 255, 0.12);
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            color: #F9FAFB;
+            border-radius: 999px;
+            padding: 7px 13px;
+            font-size: 13px;
+            font-weight: 650;
+            margin-right: 8px;
+            margin-bottom: 8px;
+        ">Clube: {model_club}</span>
+
+        <span style="
+            display: inline-block;
+            background: rgba(255, 255, 255, 0.12);
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            color: #F9FAFB;
+            border-radius: 999px;
+            padding: 7px 13px;
+            font-size: 13px;
+            font-weight: 650;
+            margin-right: 8px;
+            margin-bottom: 8px;
+        ">Liga: {model_league}</span>
+
+        <span style="
+            display: inline-block;
+            background: rgba(255, 255, 255, 0.12);
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            color: #F9FAFB;
+            border-radius: 999px;
+            padding: 7px 13px;
+            font-size: 13px;
+            font-weight: 650;
+            margin-right: 8px;
+            margin-bottom: 8px;
+        ">Cluster: {model_cluster}</span>
+    </div>
+
+    <div style="
+        display: grid;
+        grid-template-columns: repeat(5, minmax(120px, 1fr));
+        gap: 14px;
+        margin-top: 12px;
+    ">
+        <div style="
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.14);
+            border-radius: 15px;
+            padding: 15px 16px;
+        ">
+            <div style="font-size: 12px; color: #CBD5E1; margin-bottom: 7px; text-transform: uppercase; letter-spacing: 0.5px;">Idade</div>
+            <div style="font-size: 21px; font-weight: 800;">{model_age_text}</div>
+        </div>
+
+        <div style="
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.14);
+            border-radius: 15px;
+            padding: 15px 16px;
+        ">
+            <div style="font-size: 12px; color: #CBD5E1; margin-bottom: 7px; text-transform: uppercase; letter-spacing: 0.5px;">Valor mercado</div>
+            <div style="font-size: 21px; font-weight: 800;">{model_market_text}</div>
+        </div>
+
+        <div style="
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.14);
+            border-radius: 15px;
+            padding: 15px 16px;
+        ">
+            <div style="font-size: 12px; color: #CBD5E1; margin-bottom: 7px; text-transform: uppercase; letter-spacing: 0.5px;">Minutos</div>
+            <div style="font-size: 21px; font-weight: 800;">{model_minutes_text}</div>
+        </div>
+
+        <div style="
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.14);
+            border-radius: 15px;
+            padding: 15px 16px;
+        ">
+            <div style="font-size: 12px; color: #CBD5E1; margin-bottom: 7px; text-transform: uppercase; letter-spacing: 0.5px;">Fit Score</div>
+            <div style="font-size: 21px; font-weight: 800;">{model_fit_text}</div>
+        </div>
+
+        <div style="
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.14);
+            border-radius: 15px;
+            padding: 15px 16px;
+        ">
+            <div style="font-size: 12px; color: #CBD5E1; margin-bottom: 7px; text-transform: uppercase; letter-spacing: 0.5px;">Perfil DNA</div>
+            <div style="font-size: 18px; font-weight: 800;">{model_profile}</div>
+        </div>
+    </div>
+</div>
+"""
+
+components.html(
+    model_card_html,
+    height=330,
+    scrolling=False
 )
 
 kpi1, kpi2, kpi3, kpi4, kpi5 = st.columns(5)
