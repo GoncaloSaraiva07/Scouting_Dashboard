@@ -11,6 +11,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import html as html_lib
 import streamlit.components.v1 as components
+import base64
 
 from pathlib import Path
 from sklearn.preprocessing import MinMaxScaler
@@ -27,11 +28,126 @@ st.set_page_config(
     layout="wide"
 )
 
-st.title("⚽ Scouting Dashboard — Copa América 2024")
-st.caption(
-    "Dashboard para análise de perfis Player DNA, similaridade técnica, mercado e recomendação de jogadores."
-)
+render_dashboard_header()
 
+# =========================================================
+# HEADER VISUAL — LOGO COPA AMÉRICA
+# =========================================================
+
+APP_DIR = Path(__file__).parent
+COPA_LOGO_PATH = APP_DIR / "assets" / "copa_america_2024_logo.png"
+
+
+def image_to_base64(image_path):
+    """
+    Converte imagem local para base64 para permitir renderização em HTML.
+    """
+    image_path = Path(image_path)
+
+    if not image_path.exists():
+        return None
+
+    with open(image_path, "rb") as image_file:
+        encoded = base64.b64encode(image_file.read()).decode()
+
+    suffix = image_path.suffix.lower().replace(".", "")
+
+    if suffix == "jpg":
+        suffix = "jpeg"
+
+    return f"data:image/{suffix};base64,{encoded}"
+
+
+def render_dashboard_header():
+    """
+    Header customizado com título à esquerda e logo da Copa América 2024 à direita.
+    """
+
+    logo_base64 = image_to_base64(COPA_LOGO_PATH)
+
+    if logo_base64 is None:
+        logo_html = """
+        <div style="
+            color: #98A2B3;
+            font-size: 13px;
+            font-weight: 700;
+            text-align: right;
+        ">
+            Copa América 2024
+        </div>
+        """
+    else:
+        logo_html = f"""
+        <img src="{logo_base64}" style="
+            width: 150px;
+            max-height: 95px;
+            object-fit: contain;
+            display: block;
+            margin-left: auto;
+        ">
+        """
+
+    st.markdown(
+        f"""
+        <div style="
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 24px;
+            padding: 8px 0 18px 0;
+            border-bottom: 1px solid rgba(208, 213, 221, 0.45);
+            margin-bottom: 18px;
+        ">
+
+            <div style="display: flex; align-items: center; gap: 16px;">
+                <div style="
+                    width: 54px;
+                    height: 54px;
+                    border-radius: 16px;
+                    background: linear-gradient(135deg, #1D4ED8, #06B6D4);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 30px;
+                    box-shadow: 0 8px 22px rgba(29, 78, 216, 0.25);
+                ">
+                    ⚽
+                </div>
+
+                <div>
+                    <div style="
+                        font-size: 38px;
+                        font-weight: 900;
+                        color: #1D2939;
+                        letter-spacing: 1.2px;
+                        line-height: 1.05;
+                    ">
+                        Scouting Dashboard
+                    </div>
+
+                    <div style="
+                        font-size: 16px;
+                        color: #667085;
+                        margin-top: 7px;
+                    ">
+                        Copa América 2024 · Player DNA · Similaridade · Mercado · Recomendação
+                    </div>
+                </div>
+            </div>
+
+            <div style="
+                min-width: 160px;
+                display: flex;
+                justify-content: flex-end;
+                align-items: center;
+            ">
+                {logo_html}
+            </div>
+
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
 # =========================================================
 # 2. LOAD DATA
@@ -1533,50 +1649,37 @@ tab_overview, tab_similarity, tab_radar, tab_heatmap, tab_market, tab_table = st
 
 
 with tab_overview:
-    col1, col2 = st.columns([1.1, 1])
+    col1 = st.container()
 
     with col1:
-        st.markdown("### Top jogadores por Fit Score")
+    st.markdown("### Top jogadores por Fit Score")
 
-        fig_fit = px.bar(
-            profile_ranking.sort_values(fit_col, ascending=True),
-            x=fit_col,
-            y="player_name",
-            orientation="h",
-            hover_data=[
-                col for col in [
-                    "position",
-                    "team_name",
-                    "age",
-                    "market_value_eur_2024",
-                    OFFICIAL_MINUTES_COL,
-                    "cluster_label"
-                ]
-                if col in profile_ranking.columns
-            ],
-            title=f"Top {top_n} — {selected_profile_label}"
-        )
+    fig_fit = px.bar(
+        profile_ranking.sort_values(fit_col, ascending=True),
+        x=fit_col,
+        y="player_name",
+        orientation="h",
+        hover_data=[
+            col for col in [
+                "position",
+                "team_name",
+                "age",
+                "market_value_eur_2024",
+                OFFICIAL_MINUTES_COL,
+                "cluster_label"
+            ]
+            if col in profile_ranking.columns
+        ],
+        title=f"Top {top_n} — {selected_profile_label}"
+    )
 
-        fig_fit.update_layout(height=520, yaxis_title="", xaxis_title="Fit Score")
-        st.plotly_chart(fig_fit, use_container_width=True)
+    fig_fit.update_layout(
+        height=520,
+        yaxis_title="",
+        xaxis_title="Fit Score"
+    )
 
-    with col2:
-        st.markdown("### Perfil do jogador modelo")
-
-        target_display = target_player.to_dict()
-
-        st.write(f"**Jogador:** {target_display.get('player_name', 'n.d.')}")
-        st.write(f"**Posição:** {target_display.get('position', 'n.d.')}")
-        st.write(f"**Role family:** {target_display.get('role_family', 'n.d.')}")
-        st.write(f"**Equipa/Seleção:** {target_display.get('team_name', 'n.d.')}")
-        st.write(f"**Clube:** {target_display.get('club', 'n.d.')}")
-        st.write(f"**Liga:** {target_display.get('league', 'n.d.')}")
-        st.write(f"**Idade:** {target_display.get('age', 'n.d.')}")
-        st.write(f"**Valor de mercado:** {format_eur(target_display.get('market_value_eur_2024', np.nan))}")
-        st.write(f"**Minutos:** {target_display.get(OFFICIAL_MINUTES_COL, 'n.d.')}")
-        st.write(f"**Cluster:** {target_display.get('cluster_label', 'n.d.')}")
-        st.write(f"**Fit Score:** {target_display.get(fit_col, 0):.3f}")
-
+    st.plotly_chart(fig_fit, use_container_width=True)
 
 with tab_similarity:
     st.markdown("### Jogadores mais semelhantes ao jogador modelo")
