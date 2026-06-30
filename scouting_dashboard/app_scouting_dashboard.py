@@ -40,8 +40,9 @@ COPA_LOGO_PATH = APP_DIR / "assets" / "copa_america_2024_logo.png"
 
 def image_to_base64(image_path):
     """
-    Converte imagem local para base64 para permitir renderização em HTML.
+    Converte imagem local para base64 para renderização em HTML.
     """
+
     image_path = Path(image_path)
 
     if not image_path.exists():
@@ -69,8 +70,8 @@ def render_dashboard_header():
         logo_html = """
         <div style="
             color: #98A2B3;
-            font-size: 13px;
-            font-weight: 700;
+            font-size: 14px;
+            font-weight: 800;
             text-align: right;
         ">
             Copa América 2024
