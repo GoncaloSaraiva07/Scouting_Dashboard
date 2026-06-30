@@ -985,7 +985,7 @@ role_df = compute_cluster_fit_score(role_df, fit_col)
 
 st.subheader(f"Perfil: {selected_profile_label}")
 
-st.markdown("### Selecionar o Jogador Modelo")
+st.markdown("### Selecionar Jogador modelo")
 
 model_options_df = (
     role_df
@@ -998,8 +998,16 @@ model_options_df["player_option_label"] = model_options_df.apply(
     axis=1
 )
 
+if len(model_options_df) == 0:
+    st.warning(
+        "Não existem jogadores disponíveis para os filtros selecionados. "
+        "Alarga os filtros de idade, valor de mercado ou minutos."
+    )
+    st.stop()
+
 selected_model_label = st.selectbox(
-    model_options_df["player_option_label"].tolist(),
+    "Selecionar jogador modelo",
+    options=model_options_df["player_option_label"].tolist(),
     index=0,
     key="central_model_player"
 )
