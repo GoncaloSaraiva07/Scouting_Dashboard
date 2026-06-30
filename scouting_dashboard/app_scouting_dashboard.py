@@ -1649,10 +1649,15 @@ tab_overview, tab_similarity, tab_radar, tab_heatmap, tab_market, tab_table = st
 
 
 with tab_overview:
-    col1 = st.container()
 
-    with col1:
-        st.markdown("### Top jogadores por Fit Score")
+    st.markdown("### Top jogadores por Fit Score")
+
+    profile_ranking = (
+        role_df
+        .sort_values(fit_col, ascending=False)
+        .head(top_n)
+        .copy()
+    )
 
     fig_fit = px.bar(
         profile_ranking.sort_values(fit_col, ascending=True),
@@ -1676,10 +1681,38 @@ with tab_overview:
     fig_fit.update_layout(
         height=520,
         yaxis_title="",
-        xaxis_title="Fit Score"
+        xaxis_title="Fit Score",
+        margin=dict(l=20, r=20, t=70, b=20)
     )
 
-    st.plotly_chart(fig_fit, use_container_width=True)
+    st.plotly_chart(
+        fig_fit,
+        use_container_width=True
+    )
+
+    st.markdown("### Ranking do perfil selecionado")
+
+    overview_cols = [
+        "player_name",
+        "position",
+        "team_name",
+        "age",
+        "market_value_eur_2024",
+        OFFICIAL_MINUTES_COL,
+        fit_col,
+        "cluster_label"
+    ]
+
+    overview_cols = [
+        col for col in overview_cols
+        if col in profile_ranking.columns
+    ]
+
+    st.dataframe(
+        profile_ranking[overview_cols],
+        use_container_width=True,
+        hide_index=True
+    )
 
 with tab_similarity:
     st.markdown("### Jogadores mais semelhantes ao jogador modelo")
