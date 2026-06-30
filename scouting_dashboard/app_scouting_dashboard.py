@@ -28,8 +28,6 @@ st.set_page_config(
     layout="wide"
 )
 
-render_dashboard_header()
-
 # =========================================================
 # HEADER VISUAL — LOGO COPA AMÉRICA
 # =========================================================
@@ -149,6 +147,8 @@ def render_dashboard_header():
         """,
         unsafe_allow_html=True
     )
+
+render_dashboard_header()
 
 # =========================================================
 # 2. LOAD DATA
