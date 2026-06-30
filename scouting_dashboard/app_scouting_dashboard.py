@@ -748,54 +748,110 @@ with st.sidebar:
         step=30
     ))
 
-    if "age" in role_df.columns and role_df["age"].notna().any():
-        min_age = int(np.nanmin(role_df["age"]))
-        max_age_data = int(np.nanmax(role_df["age"]))
-        max_age = st.slider(
-            "Idade máxima",
-            min_value=max(15, min_age),
-            max_value=max(16, max_age_data),
-            value=min(26, max_age_data),
-            step=1
-        )
+# ---------------------------------------------------------
+# Filtro de idade — range slider
+# ---------------------------------------------------------
+
+min_age = None
+max_age = None
+
+if "age" in role_df.columns:
+
+    role_df["age"] = pd.to_numeric(
+        role_df["age"],
+        errors="coerce"
+    )
+
+    valid_ages = role_df["age"].dropna()
+
+    if len(valid_ages) > 0:
+
+        min_age_data = int(valid_ages.min())
+        max_age_data = int(valid_ages.max())
+
+        if min_age_data == max_age_data:
+            min_age = min_age_data
+            max_age = max_age_data
+
+            st.info(
+                f"Apenas existe uma idade disponível para este perfil: {min_age_data} anos."
+            )
+
+        else:
+            default_min_age = min_age_data
+            default_max_age = min(26, max_age_data)
+
+            if default_max_age < default_min_age:
+                default_max_age = max_age_data
+
+            age_range = st.slider(
+                "Intervalo de idade",
+                min_value=min_age_data,
+                max_value=max_age_data,
+                value=(default_min_age, default_max_age),
+                step=1
+            )
+
+            min_age = age_range[0]
+            max_age = age_range[1]
+
     else:
-        max_age = None
-
-    if "market_value_eur_2024" in role_df.columns and role_df["market_value_eur_2024"].notna().any():
-        max_mv_data = float(np.nanmax(role_df["market_value_eur_2024"]))
-        max_market_value_m = st.slider(
-            "Valor de mercado máximo (€M)",
-            min_value=0.0,
-            max_value=max(1.0, round(max_mv_data / 1_000_000, 1)),
-            value=min(35.0, max(1.0, round(max_mv_data / 1_000_000, 1))),
-            step=0.5
+        st.info(
+            "Filtro de idade indisponível: não existem idades válidas para este perfil."
         )
-        max_market_value = max_market_value_m * 1_000_000
+
+
+# ---------------------------------------------------------
+# Filtro de valor de mercado — range slider
+# ---------------------------------------------------------
+
+min_market_value = None
+max_market_value = None
+
+if "market_value_eur_2024" in role_df.columns:
+
+    role_df["market_value_eur_2024"] = pd.to_numeric(
+        role_df["market_value_eur_2024"],
+        errors="coerce"
+    )
+
+    valid_market_values = role_df["market_value_eur_2024"].dropna()
+
+    if len(valid_market_values) > 0:
+
+        min_mv_m = round(float(valid_market_values.min()) / 1_000_000, 1)
+        max_mv_m = round(float(valid_market_values.max()) / 1_000_000, 1)
+
+        if min_mv_m == max_mv_m:
+            min_market_value = min_mv_m * 1_000_000
+            max_market_value = max_mv_m * 1_000_000
+
+            st.info(
+                f"Apenas existe um valor de mercado disponível para este perfil: €{max_mv_m:.1f}M."
+            )
+
+        else:
+            default_min_mv_m = min_mv_m
+            default_max_mv_m = min(35.0, max_mv_m)
+
+            if default_max_mv_m < default_min_mv_m:
+                default_max_mv_m = max_mv_m
+
+            market_value_range_m = st.slider(
+                "Intervalo de valor de mercado (€M)",
+                min_value=min_mv_m,
+                max_value=max_mv_m,
+                value=(default_min_mv_m, default_max_mv_m),
+                step=0.5
+            )
+
+            min_market_value = market_value_range_m[0] * 1_000_000
+            max_market_value = market_value_range_m[1] * 1_000_000
+
     else:
-        max_market_value = None
-
-    same_cluster_only = st.checkbox(
-        "Apenas mesmo cluster",
-        value=False
-    )
-
-    same_cluster_bonus = st.checkbox(
-        "Bónus ao mesmo cluster",
-        value=True
-    )
-
-    exclude_same_team = st.checkbox(
-        "Excluir jogadores da mesma seleção/equipa",
-        value=False
-    )
-
-    top_n = st.slider(
-        "Número de recomendações",
-        min_value=5,
-        max_value=30,
-        value=15,
-        step=5
-    )
+        st.info(
+            "Filtro de valor de mercado indisponível: não existem valores válidos para este perfil."
+        )
 
 # =========================================================
 # 6. FILTRAR BASE DO PERFIL
@@ -803,15 +859,41 @@ with st.sidebar:
 
 role_df = role_df[role_df[OFFICIAL_MINUTES_COL] >= min_minutes].copy()
 
-if max_age is not None and "age" in role_df.columns:
+# ---------------------------------------------------------
+# Aplicar filtro de idade
+# ---------------------------------------------------------
+
+if min_age is not None and max_age is not None and "age" in role_df.columns:
+
+    role_df["age"] = pd.to_numeric(
+        role_df["age"],
+        errors="coerce"
+    )
+
     role_df = role_df[
-        role_df["age"].isna() | (role_df["age"] <= max_age)
+        role_df["age"].between(min_age, max_age)
     ].copy()
 
-if max_market_value is not None and "market_value_eur_2024" in role_df.columns:
+# ---------------------------------------------------------
+# Aplicar filtro de valor de mercado
+# ---------------------------------------------------------
+
+if (
+    min_market_value is not None and
+    max_market_value is not None and
+    "market_value_eur_2024" in role_df.columns
+):
+
+    role_df["market_value_eur_2024"] = pd.to_numeric(
+        role_df["market_value_eur_2024"],
+        errors="coerce"
+    )
+
     role_df = role_df[
-        role_df["market_value_eur_2024"].isna() |
-        (role_df["market_value_eur_2024"] <= max_market_value)
+        role_df["market_value_eur_2024"].between(
+            min_market_value,
+            max_market_value
+        )
     ].copy()
 
 role_df[fit_col] = pd.to_numeric(role_df[fit_col], errors="coerce").fillna(0)
@@ -884,6 +966,143 @@ profile_ranking = (
 # =========================================================
 
 st.subheader(f"Perfil selecionado: {selected_profile_label}")
+
+# =========================================================
+# JOGADOR MODELO EM DESTAQUE
+# =========================================================
+
+model_age_value = target_player.get("age", np.nan)
+
+if pd.isna(model_age_value):
+    model_age_text = "n.d."
+else:
+    model_age_text = f"{int(model_age_value)} anos"
+
+
+model_market_text = format_eur(
+    target_player.get("market_value_eur_2024", np.nan)
+)
+
+
+model_minutes_value = target_player.get(OFFICIAL_MINUTES_COL, np.nan)
+
+if pd.isna(model_minutes_value):
+    model_minutes_text = "n.d."
+else:
+    model_minutes_text = f"{int(model_minutes_value)} min"
+
+
+model_fit_value = pd.to_numeric(
+    pd.Series([target_player.get(fit_col, np.nan)]),
+    errors="coerce"
+).iloc[0]
+
+if pd.isna(model_fit_value):
+    model_fit_text = "n.d."
+else:
+    model_fit_text = f"{model_fit_value:.3f}"
+
+
+model_cluster_text = target_player.get("cluster_label", "n.d.")
+
+if pd.isna(model_cluster_text):
+    model_cluster_text = "n.d."
+
+
+st.markdown(
+    """
+    <style>
+    .model-player-card {
+        background: linear-gradient(135deg, #101828 0%, #1D2939 55%, #344054 100%);
+        color: white;
+        border-radius: 18px;
+        padding: 24px 28px;
+        margin-top: 12px;
+        margin-bottom: 24px;
+        box-shadow: 0 10px 28px rgba(16, 24, 40, 0.18);
+    }
+
+    .model-player-title {
+        font-size: 28px;
+        font-weight: 800;
+        margin-bottom: 4px;
+        letter-spacing: 0.4px;
+    }
+
+    .model-player-subtitle {
+        font-size: 15px;
+        color: #D0D5DD;
+        margin-bottom: 18px;
+    }
+
+    .model-player-grid {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 14px;
+    }
+
+    .model-player-metric {
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 12px;
+        padding: 12px 14px;
+    }
+
+    .model-player-label {
+        font-size: 12px;
+        color: #D0D5DD;
+        margin-bottom: 5px;
+    }
+
+    .model-player-value {
+        font-size: 18px;
+        font-weight: 700;
+        color: #FFFFFF;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+
+st.markdown(
+    f"""
+    <div class="model-player-card">
+        <div class="model-player-title">🎯 Jogador modelo: {target_player_name}</div>
+        <div class="model-player-subtitle">
+            {target_player.get("position", "n.d.")} · {target_player.get("team_name", "n.d.")} · Perfil: {selected_profile_label}
+        </div>
+
+        <div class="model-player-grid">
+            <div class="model-player-metric">
+                <div class="model-player-label">Idade</div>
+                <div class="model-player-value">{model_age_text}</div>
+            </div>
+
+            <div class="model-player-metric">
+                <div class="model-player-label">Valor de mercado</div>
+                <div class="model-player-value">{model_market_text}</div>
+            </div>
+
+            <div class="model-player-metric">
+                <div class="model-player-label">Minutos</div>
+                <div class="model-player-value">{model_minutes_text}</div>
+            </div>
+
+            <div class="model-player-metric">
+                <div class="model-player-label">Fit Score</div>
+                <div class="model-player-value">{model_fit_text}</div>
+            </div>
+
+            <div class="model-player-metric">
+                <div class="model-player-label">Cluster</div>
+                <div class="model-player-value">{model_cluster_text}</div>
+            </div>
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 
 kpi1, kpi2, kpi3, kpi4, kpi5 = st.columns(5)
 
