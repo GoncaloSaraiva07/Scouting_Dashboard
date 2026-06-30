@@ -91,8 +91,8 @@ def render_dashboard_header():
     else:
         logo_html = f"""
         <img src="{logo_base64}" style="
-            width: 202px;
-            max-height: 124px;
+            width: 178px;
+            max-height: 109px;
             object-fit: contain;
             display: block;
         ">
