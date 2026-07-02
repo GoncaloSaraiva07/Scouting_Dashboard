@@ -677,10 +677,10 @@ def format_eur(value):
 
 def draw_pitch_layout(fig):
     """
-    Desenha um campo StatsBomb 120x80 alinhado com o heatmap.
+    Desenha campo StatsBomb 120x80 alinhado com o heatmap.
     """
 
-    line_color = "rgba(35, 35, 35, 0.85)"
+    line_color = "rgba(30, 30, 30, 0.85)"
 
     shapes = []
 
@@ -690,7 +690,7 @@ def draw_pitch_layout(fig):
             type="rect",
             x0=0, y0=0, x1=120, y1=80,
             line=dict(color=line_color, width=2),
-            fillcolor="rgba(255,255,255,0)",
+            fillcolor="rgba(0,0,0,0)",
             layer="above"
         )
     )
@@ -705,13 +705,24 @@ def draw_pitch_layout(fig):
         )
     )
 
+    # Círculo central
+    shapes.append(
+        dict(
+            type="circle",
+            x0=50, y0=30, x1=70, y1=50,
+            line=dict(color=line_color, width=1),
+            fillcolor="rgba(0,0,0,0)",
+            layer="above"
+        )
+    )
+
     # Grandes áreas
     shapes.append(
         dict(
             type="rect",
             x0=0, y0=18, x1=18, y1=62,
             line=dict(color=line_color, width=1),
-            fillcolor="rgba(255,255,255,0)",
+            fillcolor="rgba(0,0,0,0)",
             layer="above"
         )
     )
@@ -721,7 +732,7 @@ def draw_pitch_layout(fig):
             type="rect",
             x0=102, y0=18, x1=120, y1=62,
             line=dict(color=line_color, width=1),
-            fillcolor="rgba(255,255,255,0)",
+            fillcolor="rgba(0,0,0,0)",
             layer="above"
         )
     )
@@ -732,7 +743,7 @@ def draw_pitch_layout(fig):
             type="rect",
             x0=0, y0=30, x1=6, y1=50,
             line=dict(color=line_color, width=1),
-            fillcolor="rgba(255,255,255,0)",
+            fillcolor="rgba(0,0,0,0)",
             layer="above"
         )
     )
@@ -742,39 +753,7 @@ def draw_pitch_layout(fig):
             type="rect",
             x0=114, y0=30, x1=120, y1=50,
             line=dict(color=line_color, width=1),
-            fillcolor="rgba(255,255,255,0)",
-            layer="above"
-        )
-    )
-
-    # Círculo central
-    shapes.append(
-        dict(
-            type="circle",
-            x0=50, y0=30, x1=70, y1=50,
-            line=dict(color=line_color, width=1),
-            fillcolor="rgba(255,255,255,0)",
-            layer="above"
-        )
-    )
-
-    # Pontos de penálti
-    shapes.append(
-        dict(
-            type="circle",
-            x0=11.5, y0=39.5, x1=12.5, y1=40.5,
-            line=dict(color=line_color, width=1),
-            fillcolor=line_color,
-            layer="above"
-        )
-    )
-
-    shapes.append(
-        dict(
-            type="circle",
-            x0=107.5, y0=39.5, x1=108.5, y1=40.5,
-            line=dict(color=line_color, width=1),
-            fillcolor=line_color,
+            fillcolor="rgba(0,0,0,0)",
             layer="above"
         )
     )
@@ -783,19 +762,19 @@ def draw_pitch_layout(fig):
 
     fig.update_xaxes(
         range=[0, 120],
-        fixedrange=True,
+        visible=False,
         showgrid=False,
         zeroline=False,
-        showticklabels=False,
+        fixedrange=True,
         constrain="domain"
     )
 
     fig.update_yaxes(
         range=[80, 0],
-        fixedrange=True,
+        visible=False,
         showgrid=False,
         zeroline=False,
-        showticklabels=False,
+        fixedrange=True,
         scaleanchor="x",
         scaleratio=1
     )
@@ -804,8 +783,8 @@ def draw_pitch_layout(fig):
 
 def plot_player_heatmap(spatial_events, player_id, player_name, event_group="Todas as ações"):
     """
-    Cria mapa de manchas do jogador modelo no referencial StatsBomb 120x80.
-    Corrige o desalinhamento entre o campo e a densidade.
+    Cria mapa de manchas do jogador modelo no campo StatsBomb 120x80.
+    Versão corrigida para evitar que a densidade pareça menor que o campo.
     """
 
     if spatial_events is None or len(spatial_events) == 0:
@@ -813,17 +792,8 @@ def plot_player_heatmap(spatial_events, player_id, player_name, event_group="Tod
 
     data = spatial_events.copy()
 
-    required_cols = [
-        "statsbomb_player_id",
-        "event_type",
-        "x",
-        "y"
-    ]
-
-    missing_cols = [
-        col for col in required_cols
-        if col not in data.columns
-    ]
+    required_cols = ["statsbomb_player_id", "event_type", "x", "y"]
+    missing_cols = [col for col in required_cols if col not in data.columns]
 
     if len(missing_cols) > 0:
         return None, pd.DataFrame()
@@ -842,7 +812,6 @@ def plot_player_heatmap(spatial_events, player_id, player_name, event_group="Tod
 
     data["statsbomb_player_id"] = data["statsbomb_player_id"].astype(int)
 
-    # Garantir que só ficam coordenadas válidas do campo StatsBomb
     data = data[
         data["x"].between(0, 120) &
         data["y"].between(0, 80)
@@ -873,34 +842,40 @@ def plot_player_heatmap(spatial_events, player_id, player_name, event_group="Tod
 
     fig = go.Figure()
 
-    # Heatmap alinhado ao campo inteiro 120x80
+    # Fundo completo do campo para garantir que a zona visual ocupa 120x80
     fig.add_trace(
-        go.Histogram2dContour(
+        go.Heatmap(
+            x=[0, 120],
+            y=[0, 80],
+            z=[[0, 0], [0, 0]],
+            colorscale=[
+                [0, "rgba(90, 55, 125, 0.72)"],
+                [1, "rgba(90, 55, 125, 0.72)"]
+            ],
+            showscale=False,
+            hoverinfo="skip",
+            name="Fundo"
+        )
+    )
+
+    # Densidade principal
+    fig.add_trace(
+        go.Histogram2d(
             x=player_events["x"],
             y=player_events["y"],
-            colorscale="Viridis",
-            contours=dict(
-                coloring="heatmap",
-                showlabels=False
-            ),
-            opacity=0.82,
-            ncontours=20,
+            xbins=dict(start=0, end=120, size=3),
+            ybins=dict(start=0, end=80, size=3),
+            colorscale=[
+                [0.00, "rgba(90, 55, 125, 0.15)"],
+                [0.20, "rgba(58, 82, 139, 0.45)"],
+                [0.40, "rgba(32, 145, 140, 0.62)"],
+                [0.65, "rgba(94, 201, 98, 0.78)"],
+                [0.85, "rgba(253, 231, 37, 0.90)"],
+                [1.00, "rgba(255, 255, 190, 0.96)"],
+            ],
+            zsmooth="best",
             showscale=True,
-            colorbar=dict(
-                title="Densidade"
-            ),
-            autobinx=False,
-            autobiny=False,
-            xbins=dict(
-                start=0,
-                end=120,
-                size=4
-            ),
-            ybins=dict(
-                start=0,
-                end=80,
-                size=4
-            ),
+            colorbar=dict(title="Densidade"),
             hoverinfo="skip",
             name="Densidade"
         )
@@ -915,14 +890,11 @@ def plot_player_heatmap(spatial_events, player_id, player_name, event_group="Tod
             marker=dict(
                 size=4,
                 color="white",
-                opacity=0.40,
+                opacity=0.36,
                 line=dict(width=0)
             ),
             name="Ações",
-            hovertemplate=(
-                "x=%{x:.1f}<br>"
-                "y=%{y:.1f}<extra></extra>"
-            )
+            hovertemplate="x=%{x:.1f}<br>y=%{y:.1f}<extra></extra>"
         )
     )
 
@@ -931,9 +903,9 @@ def plot_player_heatmap(spatial_events, player_id, player_name, event_group="Tod
     fig.update_layout(
         title=f"Mapa de manchas — {player_name} | {event_group}",
         height=560,
-        plot_bgcolor="rgba(245, 247, 250, 1)",
+        plot_bgcolor="white",
         paper_bgcolor="white",
-        margin=dict(l=20, r=20, t=60, b=20),
+        margin=dict(l=10, r=10, t=60, b=10),
         showlegend=False
     )
 
