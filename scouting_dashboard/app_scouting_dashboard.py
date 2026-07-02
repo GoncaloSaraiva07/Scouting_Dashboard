@@ -677,41 +677,122 @@ def format_eur(value):
 
 def draw_pitch_layout(fig):
     """
-    Desenha linhas básicas de um campo StatsBomb 120x80 em Plotly.
+    Desenha um campo StatsBomb 120x80 alinhado com o heatmap.
     """
 
-    line_color = "rgba(40, 40, 40, 0.75)"
+    line_color = "rgba(35, 35, 35, 0.85)"
 
     shapes = []
 
-    # Campo
-    shapes.append(dict(type="rect", x0=0, y0=0, x1=120, y1=80, line=dict(color=line_color, width=2)))
+    # Campo completo
+    shapes.append(
+        dict(
+            type="rect",
+            x0=0, y0=0, x1=120, y1=80,
+            line=dict(color=line_color, width=2),
+            fillcolor="rgba(255,255,255,0)",
+            layer="above"
+        )
+    )
 
     # Linha do meio
-    shapes.append(dict(type="line", x0=60, y0=0, x1=60, y1=80, line=dict(color=line_color, width=1)))
+    shapes.append(
+        dict(
+            type="line",
+            x0=60, y0=0, x1=60, y1=80,
+            line=dict(color=line_color, width=1),
+            layer="above"
+        )
+    )
 
     # Grandes áreas
-    shapes.append(dict(type="rect", x0=0, y0=18, x1=18, y1=62, line=dict(color=line_color, width=1)))
-    shapes.append(dict(type="rect", x0=102, y0=18, x1=120, y1=62, line=dict(color=line_color, width=1)))
+    shapes.append(
+        dict(
+            type="rect",
+            x0=0, y0=18, x1=18, y1=62,
+            line=dict(color=line_color, width=1),
+            fillcolor="rgba(255,255,255,0)",
+            layer="above"
+        )
+    )
+
+    shapes.append(
+        dict(
+            type="rect",
+            x0=102, y0=18, x1=120, y1=62,
+            line=dict(color=line_color, width=1),
+            fillcolor="rgba(255,255,255,0)",
+            layer="above"
+        )
+    )
 
     # Pequenas áreas
-    shapes.append(dict(type="rect", x0=0, y0=30, x1=6, y1=50, line=dict(color=line_color, width=1)))
-    shapes.append(dict(type="rect", x0=114, y0=30, x1=120, y1=50, line=dict(color=line_color, width=1)))
+    shapes.append(
+        dict(
+            type="rect",
+            x0=0, y0=30, x1=6, y1=50,
+            line=dict(color=line_color, width=1),
+            fillcolor="rgba(255,255,255,0)",
+            layer="above"
+        )
+    )
+
+    shapes.append(
+        dict(
+            type="rect",
+            x0=114, y0=30, x1=120, y1=50,
+            line=dict(color=line_color, width=1),
+            fillcolor="rgba(255,255,255,0)",
+            layer="above"
+        )
+    )
 
     # Círculo central
-    shapes.append(dict(type="circle", x0=50, y0=30, x1=70, y1=50, line=dict(color=line_color, width=1)))
+    shapes.append(
+        dict(
+            type="circle",
+            x0=50, y0=30, x1=70, y1=50,
+            line=dict(color=line_color, width=1),
+            fillcolor="rgba(255,255,255,0)",
+            layer="above"
+        )
+    )
+
+    # Pontos de penálti
+    shapes.append(
+        dict(
+            type="circle",
+            x0=11.5, y0=39.5, x1=12.5, y1=40.5,
+            line=dict(color=line_color, width=1),
+            fillcolor=line_color,
+            layer="above"
+        )
+    )
+
+    shapes.append(
+        dict(
+            type="circle",
+            x0=107.5, y0=39.5, x1=108.5, y1=40.5,
+            line=dict(color=line_color, width=1),
+            fillcolor=line_color,
+            layer="above"
+        )
+    )
 
     fig.update_layout(shapes=shapes)
 
     fig.update_xaxes(
         range=[0, 120],
+        fixedrange=True,
         showgrid=False,
         zeroline=False,
-        showticklabels=False
+        showticklabels=False,
+        constrain="domain"
     )
 
     fig.update_yaxes(
         range=[80, 0],
+        fixedrange=True,
         showgrid=False,
         zeroline=False,
         showticklabels=False,
@@ -721,11 +802,10 @@ def draw_pitch_layout(fig):
 
     return fig
 
-
 def plot_player_heatmap(spatial_events, player_id, player_name, event_group="Todas as ações"):
     """
-    Cria mapa de manchas / heatmap do jogador modelo.
-    Usa eventos StatsBomb com coordenadas x,y.
+    Cria mapa de manchas do jogador modelo no referencial StatsBomb 120x80.
+    Corrige o desalinhamento entre o campo e a densidade.
     """
 
     if spatial_events is None or len(spatial_events) == 0:
@@ -762,6 +842,12 @@ def plot_player_heatmap(spatial_events, player_id, player_name, event_group="Tod
 
     data["statsbomb_player_id"] = data["statsbomb_player_id"].astype(int)
 
+    # Garantir que só ficam coordenadas válidas do campo StatsBomb
+    data = data[
+        data["x"].between(0, 120) &
+        data["y"].between(0, 80)
+    ].copy()
+
     player_events = data[
         data["statsbomb_player_id"] == int(player_id)
     ].copy()
@@ -787,6 +873,7 @@ def plot_player_heatmap(spatial_events, player_id, player_name, event_group="Tod
 
     fig = go.Figure()
 
+    # Heatmap alinhado ao campo inteiro 120x80
     fig.add_trace(
         go.Histogram2dContour(
             x=player_events["x"],
@@ -796,15 +883,30 @@ def plot_player_heatmap(spatial_events, player_id, player_name, event_group="Tod
                 coloring="heatmap",
                 showlabels=False
             ),
-            opacity=0.80,
-            ncontours=18,
+            opacity=0.82,
+            ncontours=20,
             showscale=True,
             colorbar=dict(
                 title="Densidade"
-            )
+            ),
+            autobinx=False,
+            autobiny=False,
+            xbins=dict(
+                start=0,
+                end=120,
+                size=4
+            ),
+            ybins=dict(
+                start=0,
+                end=80,
+                size=4
+            ),
+            hoverinfo="skip",
+            name="Densidade"
         )
     )
 
+    # Pontos das ações
     fig.add_trace(
         go.Scatter(
             x=player_events["x"],
@@ -813,10 +915,14 @@ def plot_player_heatmap(spatial_events, player_id, player_name, event_group="Tod
             marker=dict(
                 size=4,
                 color="white",
-                opacity=0.35,
+                opacity=0.40,
                 line=dict(width=0)
             ),
-            name="Ações"
+            name="Ações",
+            hovertemplate=(
+                "x=%{x:.1f}<br>"
+                "y=%{y:.1f}<extra></extra>"
+            )
         )
     )
 
@@ -1469,7 +1575,7 @@ model_card_html = f"""
                         letter-spacing: 0.3px;
                         line-height: 1.15;
                     ">
-                        Jogador modelo: {model_player_name}
+                        {model_player_name}
                     </div>
 
                     <div style="
@@ -1477,7 +1583,7 @@ model_card_html = f"""
                         color: #E4E7EC;
                         margin-top: 7px;
                     ">
-                        {model_position} · {model_team} · Perfil selecionado: {model_profile}
+                        {model_position}
                     </div>
                 </div>
             </div>
