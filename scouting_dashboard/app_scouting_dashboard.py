@@ -1723,7 +1723,7 @@ tab_overview, tab_similarity, tab_radar, tab_heatmap, tab_market, tab_table = st
         "📡 Radar",
         "🔥 Heat Map",
         "💰 Mercado",
-        "📋 Tabela"
+        "📋 Recomendações"
     ]
 )
 
